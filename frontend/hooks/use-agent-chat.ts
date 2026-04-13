@@ -10,6 +10,8 @@ import { useAssistantStore } from "@/stores/assistant-store"
 export type { TraceRow, UiMessage } from "@/lib/types/chat-ui"
 
 export function useAgentChat() {
+  const lastRouteRef = React.useRef<string | undefined>(undefined)
+
   const {
     messages,
     streamingText,
@@ -19,6 +21,7 @@ export function useAgentChat() {
     pipeline,
     lastTraceId,
     grounded,
+    activityLabel,
   } = useAssistantStore(
     useShallow((s) => ({
       messages: s.messages,
@@ -29,6 +32,7 @@ export function useAgentChat() {
       pipeline: s.pipeline,
       lastTraceId: s.lastTraceId,
       grounded: s.grounded,
+      activityLabel: s.activityLabel,
     }))
   )
 
@@ -46,6 +50,7 @@ export function useAgentChat() {
     if (!trimmed) return
     if (useAssistantStore.getState().loading) return
 
+    lastRouteRef.current = undefined
     useAssistantStore.getState().beginSend(trimmed)
 
     const ac = new AbortController()
@@ -73,6 +78,7 @@ export function useAgentChat() {
       let buffer = ""
 
       for await (const ev of iterateAgentEventsFromResponse(res)) {
+        const setAct = useAssistantStore.getState().setActivityLabel
         switch (ev.type) {
           case "step_started":
             useAssistantStore.getState().pushTraceRow({
@@ -81,23 +87,33 @@ export function useAgentChat() {
               label: ev.label,
               node: ev.node,
             })
+            setAct(`Đang: ${ev.label}`)
             break
           case "route_decision":
+            lastRouteRef.current = ev.route
             useAssistantStore.getState().pushTraceRow({
               kind: "route",
               route: ev.route,
               reason: ev.reason,
             })
+            setAct(`Đã chọn route: ${ev.route}`)
             break
           case "retrieval_result":
             useAssistantStore.getState().setSources(ev.chunks)
+            setAct(
+              `Đã lấy ${ev.chunks.length} đoạn từ kho tài liệu (RAG)`
+            )
             break
           case "token":
+            if (buffer.length === 0) {
+              setAct("Đang tạo câu trả lời…")
+            }
             buffer += ev.delta
             useAssistantStore.getState().setStreamingText(buffer)
             break
           case "pipeline_signal":
             useAssistantStore.getState().setPipeline(ev.metrics)
+            setAct("Cập nhật pipeline & quan sát dữ liệu")
             break
           case "error":
             toast.error(ev.message)
@@ -109,10 +125,16 @@ export function useAgentChat() {
       }
 
       if (buffer.trim()) {
-        useAssistantStore.getState().pushAssistantMessage(buffer)
+        const st = useAssistantStore.getState()
+        const src = [...st.sources]
+        st.pushAssistantMessage(buffer, {
+          sourcesUsed: src.length > 0 ? src : undefined,
+          routeKey: lastRouteRef.current,
+        })
       } else {
         useAssistantStore.getState().setLoading(false)
         useAssistantStore.getState().clearStreaming()
+        useAssistantStore.getState().setActivityLabel(null)
       }
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
@@ -122,6 +144,7 @@ export function useAgentChat() {
       toast.error(msg)
       useAssistantStore.getState().setLoading(false)
       useAssistantStore.getState().clearStreaming()
+      useAssistantStore.getState().setActivityLabel(null)
     } finally {
       abortRef.current = null
     }
@@ -148,6 +171,7 @@ export function useAgentChat() {
   const clearSession = React.useCallback(() => {
     abortRef.current?.abort()
     abortRef.current = null
+    lastRouteRef.current = undefined
     useAssistantStore.getState().clearSession()
     toast.message("Đã bắt đầu cuộc trò chuyện mới")
   }, [])
@@ -161,6 +185,7 @@ export function useAgentChat() {
     pipeline,
     lastTraceId,
     grounded,
+    activityLabel,
     send,
     stop,
     copyTraceJson,

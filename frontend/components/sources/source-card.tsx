@@ -8,9 +8,12 @@ import { Badge } from "@/components/ui/badge"
 export function SourceCard({
   chunk,
   className,
+  showRetrievalHint,
 }: {
   chunk: RetrievalChunk
   className?: string
+  /** Hiển thị dòng giải thích điểm khớp (dùng dưới bubble assistant). */
+  showRetrievalHint?: boolean
 }) {
   return (
     <Card className={cn("text-sm shadow-none", className)}>
@@ -23,6 +26,11 @@ export function SourceCard({
             {(chunk.score * 100).toFixed(0)}%
           </Badge>
         </div>
+        {showRetrievalHint ? (
+          <p className="text-muted-foreground text-[11px] leading-snug">
+            % góc phải = độ khớp sau hybrid + rerank (demo).
+          </p>
+        ) : null}
         {chunk.source ? (
           <p className="text-muted-foreground font-mono text-xs">{chunk.source}</p>
         ) : null}

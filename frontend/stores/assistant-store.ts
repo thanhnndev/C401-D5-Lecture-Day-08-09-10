@@ -23,18 +23,24 @@ export type AssistantState = {
   messages: UiMessage[]
   streamingText: string
   loading: boolean
+  /** Một dòng trạng thái cho luồng đang chạy (SSE). */
+  activityLabel: string | null
 } & ReturnType<typeof emptyRunFields>
 
 type AssistantActions = {
   beginSend: (userContent: string) => void
   setStreamingText: (text: string) => void
   setLoading: (loading: boolean) => void
+  setActivityLabel: (label: string | null) => void
   pushTraceRow: (row: TraceRow) => void
   setSources: (chunks: RetrievalChunk[]) => void
   setPipeline: (metrics: PipelineMetrics | null) => void
   setGrounded: (grounded: boolean | null) => void
   setLastTraceId: (id: string | undefined) => void
-  pushAssistantMessage: (content: string) => void
+  pushAssistantMessage: (
+    content: string,
+    meta?: { sourcesUsed?: RetrievalChunk[]; routeKey?: string }
+  ) => void
   pushStoppedAssistant: (streamingSnapshot: string) => void
   clearStreaming: () => void
   clearSession: () => void
@@ -46,6 +52,7 @@ const initialRun: AssistantState = {
   messages: [],
   streamingText: "",
   loading: false,
+  activityLabel: null,
   ...emptyRunFields(),
 }
 
@@ -64,6 +71,7 @@ export const useAssistantStore = create<AssistantStore>()(
           messages: [..._get().messages, msg],
           streamingText: "",
           loading: true,
+          activityLabel: "Đang gửi câu hỏi…",
           ...emptyRunFields(),
         })
       },
@@ -71,6 +79,8 @@ export const useAssistantStore = create<AssistantStore>()(
       setStreamingText: (text) => set({ streamingText: text }),
 
       setLoading: (loading) => set({ loading }),
+
+      setActivityLabel: (label) => set({ activityLabel: label }),
 
       pushTraceRow: (row) =>
         set((s) => ({ traceRows: [...s.traceRows, row] })),
@@ -87,14 +97,23 @@ export const useAssistantStore = create<AssistantStore>()(
 
       setLastTraceId: (id) => set({ lastTraceId: id }),
 
-      pushAssistantMessage: (content) =>
+      pushAssistantMessage: (content, meta) =>
         set((s) => ({
           messages: [
             ...s.messages,
-            { id: newId(), role: "assistant", content },
+            {
+              id: newId(),
+              role: "assistant",
+              content,
+              ...(meta?.sourcesUsed?.length
+                ? { sourcesUsed: meta.sourcesUsed }
+                : {}),
+              ...(meta?.routeKey ? { routeKey: meta.routeKey } : {}),
+            },
           ],
           streamingText: "",
           loading: false,
+          activityLabel: null,
         })),
 
       pushStoppedAssistant: (streamingSnapshot) =>
@@ -112,6 +131,7 @@ export const useAssistantStore = create<AssistantStore>()(
               : s.messages,
             streamingText: "",
             loading: false,
+            activityLabel: null,
           }
         }),
 
@@ -122,6 +142,7 @@ export const useAssistantStore = create<AssistantStore>()(
           messages: [],
           streamingText: "",
           loading: false,
+          activityLabel: null,
           ...emptyRunFields(),
         }),
     }),
@@ -130,7 +151,7 @@ export const useAssistantStore = create<AssistantStore>()(
       storage: createJSONStorage(() => sessionStorage),
       partialize: (s) => ({ messages: s.messages }),
       skipHydration: true,
-      version: 1,
+      version: 2,
     }
   )
 )

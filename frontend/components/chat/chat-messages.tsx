@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MessageBubble } from "@/components/chat/message-bubble"
+import { MessageSourcesInline } from "@/components/chat/message-sources-inline"
 
 const SUGGESTIONS = [
   "SLA ticket P1 xử lý trong bao lâu?",
@@ -70,7 +71,7 @@ export function ChatMessages({
                   <li key={s}>
                     <button
                       type="button"
-                      className="bg-secondary/80 hover:bg-secondary text-secondary-foreground w-full rounded-md border border-transparent px-3 py-2 text-left text-sm transition-colors"
+                      className="bg-secondary/80 hover:bg-secondary text-secondary-foreground w-full cursor-pointer rounded-md border border-transparent px-3 py-2 text-left text-sm transition-colors"
                       onClick={() => onSuggestionClick(s)}
                     >
                       {s}
@@ -82,11 +83,18 @@ export function ChatMessages({
           </div>
         )}
 
-        {messages.map((m) => (
-          <MessageBubble key={m.id} role={m.role}>
-            {m.content}
-          </MessageBubble>
-        ))}
+        {messages.map((m) =>
+          m.role === "user" ? (
+            <MessageBubble key={m.id} role="user">
+              {m.content}
+            </MessageBubble>
+          ) : (
+            <div key={m.id} className="flex flex-col gap-2">
+              <MessageBubble role="assistant">{m.content}</MessageBubble>
+              <MessageSourcesInline message={m} />
+            </div>
+          )
+        )}
 
         {loading && !streamingText && (
           <div className="flex gap-3">

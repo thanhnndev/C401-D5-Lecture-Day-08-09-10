@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { AiDisclaimer } from "@/components/compliance/ai-disclaimer"
+import { ChatActivityStrip } from "@/components/chat/chat-activity-strip"
 import { ChatMessages } from "@/components/chat/chat-messages"
 import { ChatComposer } from "@/components/chat/chat-composer"
 import { PipelineMetricsStrip } from "@/components/pipeline/pipeline-metrics-strip"
@@ -123,6 +125,8 @@ export function AssistantWorkspace() {
         </div>
       </header>
 
+      <AiDisclaimer className="mx-3 mt-2 shrink-0 sm:mx-4" />
+
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         <section
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -131,6 +135,11 @@ export function AssistantWorkspace() {
           <h2 id="assistant-chat-heading" className="sr-only">
             Khung hội thoại
           </h2>
+          <ChatActivityStrip
+            loading={chat.loading}
+            label={chat.activityLabel}
+            className="shrink-0"
+          />
           <ChatMessages
             messages={chat.messages}
             streamingText={chat.streamingText}
