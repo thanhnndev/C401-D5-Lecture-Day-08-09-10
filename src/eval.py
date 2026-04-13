@@ -439,7 +439,7 @@ def compare_ab(
         combined = baseline_results + variant_results
         if combined:
             with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.dictWriter(f, fieldnames=combined[0].keys())
+                writer = csv.DictWriter(f, fieldnames=combined[0].keys())
                 writer.writeheader()
                 writer.writerows(combined)
             print(f'\nKết quả đã lưu vào: {csv_path}')

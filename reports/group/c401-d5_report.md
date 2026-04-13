@@ -1,6 +1,6 @@
 # Báo cáo nhóm — Lab Day 08: RAG Pipeline
 
-> **Tham chiếu rubric:** [`archived/day08/SCORING.md`](../archived/day08/SCORING.md)  
+> **Tham chiếu rubric:** [`archived/day08/SCORING.md`](../../archived/day08/SCORING.md)  
 > **Tổng điểm:** 100 (nhóm **60** · cá nhân **40**)
 
 ---
@@ -11,7 +11,7 @@
 |--------|---------|
 | **Mã nhóm** | C401-D5 |
 | **Môn / Lab** | AI in Action — Lab Day 08: RAG Pipeline |
-| **Repo / branch** | `_____________` |
+| **Repo / branch** | `https://github.com/thanhnndev/C401-D5-Lecture-Day-08-09-10` · nhánh `docs/day08-lab-docs` |
 
 ### Thành viên
 
@@ -29,30 +29,30 @@
 
 | Vai trò | Thành viên phụ trách |
 |---------|----------------------|
-| Tech Lead | `_____________` |
-| Retrieval Owner | `_____________` |
-| Eval Owner | `_____________` |
-| Documentation Owner | `_____________` |
-| (bổ sung nếu cần) | `_____________` |
+| Tech Lead | Đào Phước Thịnh |
+| Retrieval Owner | Trần Xuân Trường |
+| Eval Owner | Nguyễn Tri Nhân |
+| Documentation Owner | Nông Nguyễn Thành |
+| (bổ sung nếu cần) | Hồ Sỹ Minh Hà, Đào Văn Công, Đặng Hồ Hải — hỗ trợ sprint / review |
 
 ---
 
 ## Checklist cấu trúc repo (theo yêu cầu nộp bài)
 
-Đánh dấu khi đã có trong repo:
+Rubric mô tả file ở root; repo triển khai tương đương dưới `src/` và artifact tại `results/`, `logs/`:
 
-- [ ] `index.py` — chạy được
-- [ ] `rag_answer.py` — chạy được
-- [ ] `eval.py` — chạy được
-- [ ] `data/docs/` — đủ **5** tài liệu
-- [ ] `data/test_questions.json`
-- [ ] `logs/grading_run.json` — log chạy `grading_questions.json`
-- [ ] `results/scorecard_baseline.md`
-- [ ] `results/scorecard_variant.md`
-- [ ] `docs/architecture.md`
-- [ ] `docs/tuning-log.md`
-- [ ] `reports/group_report.md` (file này)
-- [ ] `reports/individual/[ten].md` — **mỗi người 1 file** (xem gợi ý tên file bên dưới)
+- [x] `src/index.py` — chạy được (`PYTHONPATH=src .venv/bin/python src/index.py`)
+- [x] `src/rag_answer.py` — chạy được
+- [x] `src/eval.py` — chạy được
+- [x] `data/docs/` — đủ **5** tài liệu
+- [x] `data/test_questions.json` (và symlink `src/data/test_questions.json` cho `eval.py`)
+- [x] `logs/grading_run.json` — log chạy `grading_questions.json`
+- [x] `results/scorecard_baseline.md` (symlink → `src/results/…`)
+- [x] `results/scorecard_variant.md`
+- [x] `docs/architecture.md`
+- [x] `docs/tuning-log.md`
+- [x] `reports/group_report.md` — symlink tới file này (`reports/group/c401-d5_report.md`)
+- [ ] `reports/individual/[ten].md` — **mỗi người 1 file** (nộp theo deadline riêng trong SCORING)
 
 ### Gợi ý tên file báo cáo cá nhân (`reports/individual/`)
 
@@ -72,82 +72,84 @@
 
 | Tiêu chí (SCORING §1) | Đạt? | Ghi chú / bằng chứng trong repo |
 |----------------------|------|--------------------------------|
-| `python index.py` chạy không lỗi, tạo ChromaDB index | ☐ / ☐ | `_____________` |
-| Mỗi chunk ≥ **3** metadata: `source`, `section`, `effective_date` | ☐ / ☐ | `_____________` |
-| `rag_answer("SLA ticket P1?")` trả lời có citation **`[1]`** | ☐ / ☐ | `_____________` |
-| Query không có trong docs → **abstain** (không bịa) | ☐ / ☐ | `_____________` |
-| Có ≥ **1** variant (hybrid / rerank / query transform) | ☐ / ☐ | Tên variant: `_____________` |
-| `scorecard_baseline.md` & `scorecard_variant.md` có **số liệu thực** | ☐ / ☐ | `_____________` |
-| `python eval.py` chạy end-to-end **10** câu test không crash | ☐ / ☐ | `_____________` |
-| A/B có **delta** rõ và **giải thích** vì sao chọn biến đó | ☐ / ☐ | Xem `docs/tuning-log.md`: `_____________` |
+| `python index.py` chạy không lỗi, tạo ChromaDB index | ☑ | `PYTHONPATH=src .venv/bin/python src/index.py` — **36** chunks, `chroma_db/` |
+| Mỗi chunk ≥ **3** metadata: `source`, `section`, `effective_date` | ☑ | `chunk_document` / `inspect_metadata_coverage` trong `src/index.py` |
+| `rag_answer` trả lời SLA P1 có citation **`[1]`** | ☑ | Log `src/rag_answer.py` demo; scorecard q01 |
+| Query không có trong docs → **abstain** | ☑ | Ví dụ ERR-403 / thời tiết trong demo; q09/q10 eval |
+| Có ≥ **1** variant (hybrid / rerank / query transform) | ☑ | Variant: **hybrid + rerank** (`VARIANT_CONFIG` trong `src/eval.py`) |
+| `scorecard_baseline.md` & `scorecard_variant.md` có **số liệu thực** | ☑ | `results/scorecard_*.md` |
+| `python eval.py` chạy end-to-end **10** câu test không crash | ☑ | `PYTHONPATH=src .venv/bin/python src/eval.py` |
+| A/B có **delta** rõ và **giải thích** vì sao chọn biến đó | ☑ | `docs/tuning-log.md`, `results/ab_comparison.csv` |
 
 ---
 
 ## 2. Group documentation — tóm tắt (10 điểm nhóm)
 
-> Chi tiết chấm theo `docs/architecture.md` (5 điểm) và `docs/tuning-log.md` (5 điểm). Phần dưới là **placeholder** — nhóm thay bằng tóm tắt 3–6 câu mỗi mục sau khi hoàn thiện tài liệu.
-
 ### 2.1. `docs/architecture.md`
 
-- **Chunking:** size / overlap / strategy / lý do — `_____________`
-- **Retrieval:** baseline vs variant (`retrieval_mode`, `top_k`, rerank nếu có) — `_____________`
-- **Sơ đồ pipeline:** đã có (text / Mermaid / ASCII) tại section — `_____________`
+- **Chunking:** `CHUNK_SIZE=400`, `CHUNK_OVERLAP=80`; tách theo section heading + FAQ `Q:`; overlap theo ký tự — mục 2 trong file.
+- **Retrieval:** Baseline **dense**, top_k 10→3, không rerank; Variant **hybrid** + **rerank True** — khớp `BASELINE_CONFIG` / `VARIANT_CONFIG`.
+- **Sơ đồ pipeline:** Mermaid mục 6 (dense/sparse/hybrid → rerank tùy chọn → LLM).
 
 ### 2.2. `docs/tuning-log.md`
 
-- **Một biến thay đổi** và lý do — `_____________`
-- **≥ 2 metrics** so sánh baseline vs variant — `_____________`
-- **Kết luận:** variant hơn/kém baseline ở điểm gì, bằng chứng — `_____________`
+- **Một biến / gói thí nghiệm:** Hybrid là thay đổi trọng tâm; rerank bật kèm variant (giải thích trong log).
+- **≥ 2 metrics:** Faithfulness, relevance, recall, completeness — bảng baseline vs variant.
+- **Kết luận:** Relevance TB +0.1; completeness TB không đổi; ví dụ q02/q07 cải thiện — trích `results/scorecard_*.md`.
 
 ---
 
 ## 3. Grading questions — log & điểm (30 điểm nhóm)
 
 **File log bắt buộc:** `logs/grading_run.json`  
-**Cấu hình dùng khi chấm:** `_____________` (ví dụ: hybrid + rerank — ghi đúng với từng dòng log)
+**Cấu hình dùng khi sinh log:** `retrieval_mode=hybrid`, `top_k_search=10`, `top_k_select=3`, `use_rerank=True` — khớp `VARIANT_CONFIG` và `src/run_grading_log.py`.
+
+**Lệnh:** `PYTHONPATH=src .venv/bin/python src/run_grading_log.py`
 
 ### 3.1. Bảng theo dõi từng câu (raw / 98 → quy đổi 30 điểm)
 
 Công thức: **Điểm grading nhóm (mục 3) = (tổng raw đạt được / 98) × 30**
 
-| ID | Tóm tắt câu (SCORING) | Điểm raw tối đa | Raw đạt được (tự ghi) | Full / Partial / Zero / Penalty | Ghi chú |
-|----|------------------------|-----------------|----------------------|-----------------------------------|---------|
-| gq01 | SLA P1 thay đổi so với trước? | 10 | `___` | `_____________` | `_____________` |
-| gq02 | Remote + VPN + giới hạn thiết bị? | 10 | `___` | `_____________` | `_____________` |
-| gq03 | Flash Sale + đã kích hoạt → hoàn tiền? | 10 | `___` | `_____________` | `_____________` |
-| gq04 | Store credit %? | 8 | `___` | `_____________` | `_____________` |
-| gq05 | Contractor + Admin Access — điều kiện? | 10 | `___` | `_____________` | `_____________` |
-| gq06 | P1 lúc 2am → cấp quyền tạm? | 12 | `___` | `_____________` | `_____________` |
-| gq07 | Mức phạt vi phạm SLA P1? (abstain) | 10 | `___` | `_____________` | **Lưu ý:** abstain đúng = điểm cao; hallucinate = penalty |
-| gq08 | Báo nghỉ 3 ngày = nghỉ ốm 3 ngày? | 10 | `___` | `_____________` | `_____________` |
-| gq09 | Mật khẩu đổi / nhắc trước (ngày)? | 8 | `___` | `_____________` | `_____________` |
-| gq10 | Chính sách v4 với đơn trước 01/02? | 10 | `___` | `_____________` | `_____________` |
-| **Tổng** | | **98** | **`___`** | | |
+Điểm **raw** dưới đây là **ước lượng của nhóm** sau khi đối chiếu log với `expected_answer` / tiêu chí trong `data/grading_questions.json` (GV chấm có thể điều chỉnh).
 
-**Điểm mục 3 (ước tính):** `( _____ / 98 ) × 30 =` **`_____`** điểm
+| ID | Tóm tắt câu (SCORING) | Điểm raw tối đa | Raw đạt được (ước lượng) | Full / Partial / Zero / Penalty | Ghi chú |
+|----|------------------------|-----------------|--------------------------|-----------------------------------|---------|
+| gq01 | SLA P1 thay đổi so với trước? | 10 | 6 | Partial | Có 6h→4h; thiếu nhấn mạnh version/date như expected |
+| gq02 | Remote + VPN + giới hạn thiết bị? | 10 | 5 | Partial | Có VPN + 2 thiết bị; thiếu đủ chi tiết Cisco / tổng hợp 2 nguồn như mẫu |
+| gq03 | Flash Sale + đã kích hoạt → hoàn tiền? | 10 | 10 | Full | Kết luận không hoàn; nêu cả hai ngoại lệ |
+| gq04 | Store credit %? | 8 | 8 | Full | 110% khớp policy |
+| gq05 | Contractor + Admin Access? | 10 | 2 | Zero / Partial | Pipeline abstain — thiếu Level 4 / 5 ngày / training |
+| gq06 | P1 2am → quyền tạm? | 12 | 11 | Partial | Đủ 24h, Tech Lead, audit; bonus hotline tùy cách chấm |
+| gq07 | Mức phạt SLA P1? (abstain) | 10 | 10 | Full | Không bịa phạt — abstain đúng hướng |
+| gq08 | Hai quy định “3 ngày”? | 10 | 4 | Partial | Log diễn giải sai mối quan hệ hai “3 ngày” |
+| gq09 | Mật khẩu 90 ngày / nhắc / kênh? | 8 | 6 | Partial | 90 ngày + 7 ngày + SSO; thiếu ext Helpdesk nếu rubric strict |
+| gq10 | Policy v4 cho đơn trước 01/02/2026? | 10 | 9 | Partial / Full | Kết luận v3 cho đơn cũ — gần đủ expected |
+| **Tổng** | | **98** | **71** | | |
+
+**Điểm mục 3 (ước tính):** `( 71 / 98 ) × 30 ≈` **21.7** điểm
 
 ### 3.2. Bonus liên quan grading (SCORING — Bonus)
 
 | Điều kiện | Đạt? |
 |-----------|------|
-| Log đủ **10** câu + **timestamp** hợp lệ (17:00–18:00) | ☐ |
-| **gq06** đạt **Full** | ☐ |
+| Log đủ **10** câu + **timestamp** hợp lệ (17:00–18:00) | ☑ (đủ 10 câu + ISO timestamp; giờ theo máy chạy) |
+| **gq06** đạt **Full** | Partial (tùy GV — có thể không đủ bonus) |
 
 ---
 
 ## 4. Quyết định kỹ thuật cấp nhóm (không trùng chi tiết individual report)
 
-`_____________`
-
-`_____________`
-
-`_____________`
+- Code RAG tập trung trong `src/` với `PYTHONPATH=src`; Chroma persist `chroma_db/` — cần xóa DB khi đổi model embedding (khác chiều vector).
+- A/B: **dense** vs **hybrid + rerank**; giữ `top_k` cố định để so sánh công bằng.
+- Grading log sinh bằng `src/run_grading_log.py` để đồng nhất format SCORING §3.
 
 ---
 
 ## 5. Rủi ro / hạn chế đã biết
 
-`_____________`
+- LLM-as-judge và chat model có biến động nhẹ giữa các lần chạy eval.
+- `gq05` cho thấy retrieval + 3 chunk vẫn có thể không đủ để trả lời đa ý — abstain không phải lúc nào cũng được chấm điểm tối đa nếu rubric yêu cầu đủ chi tiết.
+- Đường dẫn: GV có thể mong đợi `index.py` ở root — trong repo là `src/index.py` (đã ghi trong báo cáo và README).
 
 ---
 
