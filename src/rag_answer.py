@@ -417,6 +417,7 @@ Câu hỏi: {query}
 
 [CONTEXT]
 {context_block}
+[END CONTEXT]
 
 Trả lời:"""
     return prompt
