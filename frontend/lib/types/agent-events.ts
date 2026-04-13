@@ -55,6 +55,13 @@ export type AgentEvent =
       context?: string
     }
   | {
+      type: "email_draft"
+      draftId: string
+      to: string
+      subject: string
+      body: string
+    }
+  | {
       type: "token"
       delta: string
     }
@@ -93,6 +100,13 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
       return typeof (value as { level?: string }).level === "string"
     case "human_checkpoint":
       return typeof (value as { prompt?: string }).prompt === "string"
+    case "email_draft":
+      return (
+        typeof (value as { draftId?: string }).draftId === "string" &&
+        typeof (value as { to?: string }).to === "string" &&
+        typeof (value as { subject?: string }).subject === "string" &&
+        typeof (value as { body?: string }).body === "string"
+      )
     case "token":
       return typeof (value as { delta?: string }).delta === "string"
     case "pipeline_signal": {

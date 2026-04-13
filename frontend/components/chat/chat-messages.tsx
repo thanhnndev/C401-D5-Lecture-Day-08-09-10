@@ -1,6 +1,13 @@
 "use client"
 
 import * as React from "react"
+import {
+  Headset,
+  Mail,
+  ShieldAlert,
+  Wifi,
+  type LucideIcon,
+} from "lucide-react"
 
 import type { ConfidenceLevel } from "@/lib/types/agent-events"
 import type { UiMessage } from "@/lib/types/chat-ui"
@@ -10,11 +17,45 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MessageBubble } from "@/components/chat/message-bubble"
 import { MessageSourcesInline } from "@/components/chat/message-sources-inline"
+import {
+  EmailDraftApprovalCard,
+  EmailDraftOutcome,
+} from "@/components/chat/email-draft-approval"
 
-const SUGGESTIONS = [
-  "SLA ticket P1 xử lý trong bao lâu?",
-  "Khi nào cần escalation lên duty manager?",
-  "Wi‑Fi văn phòng chậm — checklist IT Helpdesk?",
+type SuggestionItem = {
+  prompt: string
+  title: string
+  subtitle: string
+  icon: LucideIcon
+}
+
+/** Bốn gợi ý: CS (policy → leo thang → email HIL), sau đó IT. */
+const SUGGESTIONS: SuggestionItem[] = [
+  {
+    prompt: "SLA ticket P1 xử lý trong bao lâu?",
+    title: "SLA & ticket P1",
+    subtitle: "Policy nội bộ (RAG)",
+    icon: ShieldAlert,
+  },
+  {
+    prompt: "Khi nào cần escalation lên duty manager?",
+    title: "Escalation",
+    subtitle: "Leo thang & runbook",
+    icon: Headset,
+  },
+  {
+    prompt:
+      "Soạn email chăm sóc khách hàng sau phản hồi chậm — cần xác nhận gửi",
+    title: "Email chăm sóc KH",
+    subtitle: "Bản nháp, xác nhận gửi (HIL)",
+    icon: Mail,
+  },
+  {
+    prompt: "Wi‑Fi văn phòng chậm — checklist IT Helpdesk?",
+    title: "IT Helpdesk",
+    subtitle: "Wi‑Fi / VPN",
+    icon: Wifi,
+  },
 ]
 
 function assistantBubbleVariant(
@@ -30,6 +71,8 @@ export function ChatMessages({
   loading,
   busy,
   onSuggestionClick,
+  onConfirmEmailDraft,
+  onDismissEmailDraft,
   className,
 }: {
   messages: UiMessage[]
@@ -40,6 +83,8 @@ export function ChatMessages({
   /** Đang chờ / stream phản hồi — dùng cho aria-busy trên vùng log. */
   busy?: boolean
   onSuggestionClick: (text: string) => void
+  onConfirmEmailDraft?: (messageId: string) => void
+  onDismissEmailDraft?: (messageId: string) => void
   className?: string
 }) {
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -67,29 +112,46 @@ export function ChatMessages({
         aria-busy={busy ?? loading}
       >
         {empty && (
-          <div className="mx-auto flex max-w-lg flex-col gap-3 text-center">
-            <p className="text-muted-foreground text-sm">
-              Demo trợ lý nội bộ CS + IT Helpdesk — luồng RAG, đa agent và
-              tín hiệu pipeline (mock SSE).
-            </p>
-            <div className="flex flex-col gap-2">
-              <p className="text-muted-foreground text-xs font-medium">
-                Gợi ý câu hỏi
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+            <div className="text-center">
+              <p className="text-foreground text-sm font-medium tracking-tight">
+                Chọn một gợi ý để bắt đầu
               </p>
-              <ul className="flex flex-col gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <li key={s}>
+              <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                Demo trợ lý CS + IT — RAG, pipeline và use case xác nhận email
+                (mock SSE).
+              </p>
+            </div>
+
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {SUGGESTIONS.map((s) => {
+                const Icon = s.icon
+                return (
+                  <li key={s.prompt}>
                     <button
                       type="button"
-                      className="bg-secondary/80 hover:bg-secondary text-secondary-foreground w-full cursor-pointer rounded-md border border-transparent px-3 py-2 text-left text-sm transition-colors"
-                      onClick={() => onSuggestionClick(s)}
+                      onClick={() => onSuggestionClick(s.prompt)}
+                      className={cn(
+                        "group border-border bg-card/60 hover:border-primary/30 hover:bg-accent/40 focus-visible:ring-ring flex w-full cursor-pointer gap-3 rounded-xl border p-3 text-left shadow-xs transition-colors",
+                        "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                      )}
                     >
-                      {s}
+                      <span className="bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary flex size-10 shrink-0 items-center justify-center rounded-lg transition-colors">
+                        <Icon className="size-5" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="text-foreground block text-sm font-medium leading-snug">
+                          {s.title}
+                        </span>
+                        <span className="text-muted-foreground mt-0.5 block text-xs leading-snug">
+                          {s.subtitle}
+                        </span>
+                      </span>
                     </button>
                   </li>
-                ))}
-              </ul>
-            </div>
+                )
+              })}
+            </ul>
           </div>
         )}
 
@@ -106,6 +168,20 @@ export function ChatMessages({
               >
                 {m.content}
               </MessageBubble>
+              {m.emailDraft?.sendStatus === "pending" &&
+              onConfirmEmailDraft &&
+              onDismissEmailDraft ? (
+                <EmailDraftApprovalCard
+                  draft={m.emailDraft}
+                  messageId={m.id}
+                  onConfirm={onConfirmEmailDraft}
+                  onDismiss={onDismissEmailDraft}
+                />
+              ) : null}
+              {m.emailDraft &&
+              m.emailDraft.sendStatus !== "pending" ? (
+                <EmailDraftOutcome status={m.emailDraft.sendStatus} />
+              ) : null}
               <MessageSourcesInline message={m} />
             </div>
           )

@@ -31,16 +31,97 @@ async function* emit(ev: AgentEvent): AsyncGenerator<AgentEvent> {
   yield ev
 }
 
-/**
- * Deterministic mock LangGraph-style run: supervisor → route → workers → RAG chunks → pipeline → tokens → done.
- * Replace with real LangGraph HTTP stream when `AGENT_USE_MOCK` is false (see `app/api/chat/route.ts`).
- */
-export async function* mockAgentStream(input: {
-  messages: ChatMessage[]
-}): AsyncGenerator<AgentEvent, void, undefined> {
-  const lastUser = [...input.messages].reverse().find((m) => m.role === "user")
-  const q = lastUser?.content?.trim() || "SLA ticket P1 là gì?"
+/** Use case: CS soạn email chăm sóc KH — draft qua SSE, người xác nhận gửi ở UI (HIL). */
+function isCsEmailCareFlow(query: string): boolean {
+  const q = query.trim()
+  return (
+    /soạn\s+email|soan\s+email/i.test(q) ||
+    /chăm\s*sóc\s*khách|cham\s*soc\s*khach/i.test(q) ||
+    (/mail|email|thư/i.test(q) &&
+      /chăm\s*sóc|khách\s*hàng|xác\s*nhận\s*gửi|phản\s*hồi\s*chậm/i.test(q))
+  )
+}
 
+async function* mockCsEmailCareStream(
+  query: string
+): AsyncGenerator<AgentEvent, void, undefined> {
+  yield* emit({
+    type: "step_started",
+    stepId: "cs1",
+    label: "Supervisor — ý định gửi email chăm sóc KH",
+    node: "supervisor",
+  })
+  await pause(DEFAULT_STEP_PAUSE_MS)
+
+  yield* emit({
+    type: "route_decision",
+    route: "cs_email_care",
+    reason:
+      "Khớp tác vụ CS: soạn thư theo tone chăm sóc, cần người duyệt trước khi gửi",
+  })
+  await pause(DEFAULT_BETWEEN_PHASE_MS)
+
+  yield* emit({
+    type: "step_started",
+    stepId: "cs2",
+    label: "Agent soạn email — template & kiểm tra rủi ro",
+    node: "synthesis",
+  })
+  await pause(DEFAULT_STEP_PAUSE_MS)
+
+  const draftId = `draft_${Date.now().toString(36)}`
+  const to = "khachhang@example.com"
+  const subject =
+    "[CS] Xin lỗi về thời gian phản hồi — chúng tôi đã ghi nhận phản hồi của quý khách"
+
+  const body = `Kính gửi Quý khách,
+
+Chúng tôi xin lỗi vì đã để Quý khách chờ lâu hơn cam kết trong phiên làm việc vừa qua. Đội CS đã ghi nhận ticket và đang theo dõi sát tiến độ xử lý.
+
+Tóm tắt: ${query.length > 160 ? `${query.slice(0, 157)}…` : query}
+
+Nếu Quý khách cần hỗ trợ thêm, vui lòng trả lời trực tiếp email này hoặc gọi hotline — chúng tôi sẽ ưu tiên phản hồi trong giờ làm việc.
+
+Trân trọng,
+Đội Chăm sóc khách hàng`
+
+  yield* emit({
+    type: "email_draft",
+    draftId,
+    to,
+    subject,
+    body,
+  })
+  await pause(DEFAULT_BETWEEN_PHASE_MS)
+
+  yield* emit({
+    type: "pipeline_signal",
+    metrics: {
+      freshnessMinutes: 8,
+      volume24h: 64,
+      schemaHealth: "ok",
+      label: "Kênh email nội bộ — chờ xác nhận gửi (demo)",
+    },
+  })
+  await pause(DEFAULT_AFTER_PIPELINE_MS / 2)
+
+  const answer =
+    "Đây là **bản nháp email** chăm sóc khách hàng (demo). Nội dung chi tiết nằm trong khung **Xác nhận gửi** bên dưới — bạn hãy đọc và chọn **Gửi email** hoặc **Huỷ**.\n\n" +
+    "Trong hệ thật, bước này nối SMTP / ticket và chỉ gửi sau khi người phê duyệt xác nhận."
+
+  const chunkSize = 16
+  for (let i = 0; i < answer.length; i += chunkSize) {
+    yield* emit({ type: "token", delta: answer.slice(i, i + chunkSize) })
+    await pause(DEFAULT_TOKEN_MS)
+  }
+
+  yield* emit({
+    type: "done",
+    traceId: `trace_email_${Date.now().toString(36)}`,
+  })
+}
+
+async function* mockDefaultRagStream(q: string): AsyncGenerator<AgentEvent, void, undefined> {
   yield* emit({
     type: "step_started",
     stepId: "s1",
@@ -119,14 +200,6 @@ export async function* mockAgentStream(input: {
   await pause(DEFAULT_BETWEEN_PHASE_MS / 2)
 
   yield* emit({
-    type: "human_checkpoint",
-    prompt:
-      "Đề xuất: xác nhận route trước khi tin cậy hoàn toàn vào câu trả lời tổng hợp.",
-    context: `route=${route}; minChunkScore=${minScore.toFixed(2)}`,
-  })
-  await pause(DEFAULT_BETWEEN_PHASE_MS / 2)
-
-  yield* emit({
     type: "step_started",
     stepId: "w2",
     label: "Policy worker — kiểm tra rủi ro trả lời",
@@ -164,6 +237,25 @@ export async function* mockAgentStream(input: {
     type: "done",
     traceId: `trace_${Date.now().toString(36)}`,
   })
+}
+
+/**
+ * Deterministic mock LangGraph-style run: supervisor → route → workers → RAG chunks → pipeline → tokens → done.
+ * Nhánh riêng: soạn email CS (draft + HIL gửi).
+ * Replace with real LangGraph HTTP stream when `AGENT_USE_MOCK` is false (see `app/api/chat/route.ts`).
+ */
+export async function* mockAgentStream(input: {
+  messages: ChatMessage[]
+}): AsyncGenerator<AgentEvent, void, undefined> {
+  const lastUser = [...input.messages].reverse().find((m) => m.role === "user")
+  const q = lastUser?.content?.trim() || "SLA ticket P1 là gì?"
+
+  if (isCsEmailCareFlow(q)) {
+    yield* mockCsEmailCareStream(q)
+    return
+  }
+
+  yield* mockDefaultRagStream(q)
 }
 
 function buildMockAnswer(query: string, route: string): string {

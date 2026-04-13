@@ -21,6 +21,12 @@ async function consumeChatStream(res: Response) {
 
   const lastRouteRef = { current: undefined as string | undefined }
   let buffer = ""
+  let emailDraftForMessage: {
+    draftId: string
+    to: string
+    subject: string
+    body: string
+  } | null = null
 
   for await (const ev of iterateAgentEventsFromResponse(res)) {
     const setAct = useAssistantStore.getState().setActivityLabel
@@ -55,9 +61,14 @@ async function consumeChatStream(res: Response) {
             : `Mức tin cậy: ${ev.level}`
         )
         break
-      case "human_checkpoint":
-        useAssistantStore.getState().setHilCheckpoint(ev.prompt)
-        setAct("Đề xuất xác nhận (HIL demo)")
+      case "email_draft":
+        emailDraftForMessage = {
+          draftId: ev.draftId,
+          to: ev.to,
+          subject: ev.subject,
+          body: ev.body,
+        }
+        setAct("Đã tạo bản nháp email — chờ bạn xác nhận gửi")
         break
       case "token":
         if (buffer.length === 0) {
@@ -86,6 +97,15 @@ async function consumeChatStream(res: Response) {
       sourcesUsed: st.sources.length > 0 ? [...st.sources] : undefined,
       routeKey: lastRouteRef.current,
       confidenceLevel: conf ?? undefined,
+      emailDraft: emailDraftForMessage
+        ? {
+            draftId: emailDraftForMessage.draftId,
+            to: emailDraftForMessage.to,
+            subject: emailDraftForMessage.subject,
+            body: emailDraftForMessage.body,
+            sendStatus: "pending",
+          }
+        : undefined,
     })
   } else {
     useAssistantStore.getState().setLoading(false)
@@ -107,8 +127,6 @@ export function useAgentChat() {
     activityLabel,
     answerConfidence,
     lastError,
-    hilStatus,
-    hilPrompt,
   } = useAssistantStore(
     useShallow((s) => ({
       messages: s.messages,
@@ -122,8 +140,6 @@ export function useAgentChat() {
       activityLabel: s.activityLabel,
       answerConfidence: s.answerConfidence,
       lastError: s.lastError,
-      hilStatus: s.hilStatus,
-      hilPrompt: s.hilPrompt,
     }))
   )
 
@@ -214,14 +230,14 @@ export function useAgentChat() {
     useAssistantStore.getState().setLastError(null)
   }, [])
 
-  const resolveHilApprove = React.useCallback(() => {
-    useAssistantStore.getState().resolveHil()
-    toast.message("Đã ghi nhận (demo)")
+  const confirmEmailDraft = React.useCallback((messageId: string) => {
+    useAssistantStore.getState().setEmailDraftStatus(messageId, "sent")
+    toast.success("Đã xác nhận gửi email (demo — không gửi thật)")
   }, [])
 
-  const resolveHilDismiss = React.useCallback(() => {
-    useAssistantStore.getState().resolveHil()
-    toast.message("Đã bỏ qua gợi ý (demo)")
+  const dismissEmailDraft = React.useCallback((messageId: string) => {
+    useAssistantStore.getState().setEmailDraftStatus(messageId, "dismissed")
+    toast.message("Đã huỷ gửi email (demo)")
   }, [])
 
   const copyTraceJson = React.useCallback(async () => {
@@ -261,14 +277,12 @@ export function useAgentChat() {
     activityLabel,
     answerConfidence,
     lastError,
-    hilStatus,
-    hilPrompt,
     send,
     stop,
     retryAfterError,
     dismissError,
-    resolveHilApprove,
-    resolveHilDismiss,
+    confirmEmailDraft,
+    dismissEmailDraft,
     copyTraceJson,
     clearSession,
   }

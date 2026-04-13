@@ -21,7 +21,6 @@ import { ChatActivityStrip } from "@/components/chat/chat-activity-strip"
 import { ChatErrorBanner } from "@/components/chat/chat-error-banner"
 import { ChatMessages } from "@/components/chat/chat-messages"
 import { ChatComposer } from "@/components/chat/chat-composer"
-import { HilSoftStrip } from "@/components/chat/hil-soft-strip"
 import { PipelineMetricsStrip } from "@/components/pipeline/pipeline-metrics-strip"
 import { SourcesPanel } from "@/components/sources/sources-panel"
 import { AgentTimeline } from "@/components/agent-trace/agent-timeline"
@@ -140,15 +139,6 @@ export function AssistantWorkspace() {
         />
       ) : null}
 
-      {chat.hilStatus === "awaiting" && chat.hilPrompt ? (
-        <HilSoftStrip
-          className="mt-2 shrink-0"
-          prompt={chat.hilPrompt}
-          onApprove={chat.resolveHilApprove}
-          onDismiss={chat.resolveHilDismiss}
-        />
-      ) : null}
-
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         <section
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -170,6 +160,8 @@ export function AssistantWorkspace() {
             onSuggestionClick={(t) => {
               void chat.send(t)
             }}
+            onConfirmEmailDraft={chat.confirmEmailDraft}
+            onDismissEmailDraft={chat.dismissEmailDraft}
             busy={chat.loading}
             className="min-h-0 flex-1"
           />

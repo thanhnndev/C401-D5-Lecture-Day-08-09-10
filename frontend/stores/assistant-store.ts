@@ -6,16 +6,12 @@ import type {
   PipelineMetrics,
   RetrievalChunk,
 } from "@/lib/types/agent-events"
-import type { TraceRow, UiMessage } from "@/lib/types/chat-ui"
-
-export type HilStatus = "idle" | "awaiting" | "resolved"
+import type { EmailDraftSnapshot, TraceRow, UiMessage } from "@/lib/types/chat-ui"
 
 function emptyUiEphemeral() {
   return {
     answerConfidence: null as ConfidenceLevel | null,
     lastError: null as string | null,
-    hilStatus: "idle" as HilStatus,
-    hilPrompt: null as string | null,
   }
 }
 
@@ -59,6 +55,7 @@ type AssistantActions = {
       sourcesUsed?: RetrievalChunk[]
       routeKey?: string
       confidenceLevel?: ConfidenceLevel
+      emailDraft?: EmailDraftSnapshot
     }
   ) => void
   pushStoppedAssistant: (streamingSnapshot: string) => void
@@ -66,8 +63,11 @@ type AssistantActions = {
   clearSession: () => void
   setAnswerConfidence: (level: ConfidenceLevel | null) => void
   setLastError: (message: string | null) => void
-  setHilCheckpoint: (prompt: string | null) => void
-  resolveHil: () => void
+  /** Cập nhật trạng thái gửi email (demo HIL). */
+  setEmailDraftStatus: (
+    messageId: string,
+    status: EmailDraftSnapshot["sendStatus"]
+  ) => void
   /** Chuẩn bị state cho lần gọi lại sau lỗi (không thêm tin nhắn user). */
   beginRetrySend: () => void
 }
@@ -140,14 +140,13 @@ export const useAssistantStore = create<AssistantStore>()(
               ...(meta?.confidenceLevel
                 ? { confidenceLevel: meta.confidenceLevel }
                 : {}),
+              ...(meta?.emailDraft ? { emailDraft: meta.emailDraft } : {}),
             },
           ],
           streamingText: "",
           loading: false,
           activityLabel: null,
           answerConfidence: null,
-          hilPrompt: null,
-          hilStatus: s.hilStatus === "awaiting" ? "resolved" : s.hilStatus,
         })),
 
       pushStoppedAssistant: (streamingSnapshot) =>
@@ -167,8 +166,6 @@ export const useAssistantStore = create<AssistantStore>()(
             loading: false,
             activityLabel: null,
             answerConfidence: null,
-            hilPrompt: null,
-            hilStatus: "idle",
           }
         }),
 
@@ -188,17 +185,16 @@ export const useAssistantStore = create<AssistantStore>()(
 
       setLastError: (message) => set({ lastError: message }),
 
-      setHilCheckpoint: (prompt) =>
-        set({
-          hilPrompt: prompt,
-          hilStatus: prompt ? "awaiting" : "idle",
-        }),
-
-      resolveHil: () =>
-        set({
-          hilStatus: "resolved",
-          hilPrompt: null,
-        }),
+      setEmailDraftStatus: (messageId, status) =>
+        set((s) => ({
+          messages: s.messages.map((m) => {
+            if (m.id !== messageId || !m.emailDraft) return m
+            return {
+              ...m,
+              emailDraft: { ...m.emailDraft, sendStatus: status },
+            }
+          }),
+        })),
 
       beginRetrySend: () =>
         set({
