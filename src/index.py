@@ -33,7 +33,6 @@ CHROMA_DB_DIR = Path(__file__).resolve().parent.parent / "chroma_db"
 # Gợi ý từ slide: chunk 300-500 tokens, overlap 50-80 tokens
 CHUNK_SIZE = 400       # tokens (ước lượng bằng số ký tự / 4)
 CHUNK_OVERLAP = 80     # tokens overlap giữa các chunk
-EMBEDDING_KEY = os.getenv("AUTHORIZATION_JINA")
 
 # =============================================================================
 # STEP 1: PREPROCESS
@@ -217,34 +216,69 @@ def _split_by_size(
 # Embed các chunk và lưu vào ChromaDB
 # =============================================================================
 
+def _openai_embedding_client():
+    """OpenAI SDK: API chính thức hoặc endpoint tương thích (Ollama, ngrok → Ollama)."""
+    from openai import OpenAI
+
+    api_key = os.getenv("OPENAI_API_KEY") or "ollama"
+    base_url = (os.getenv("OPENAI_BASE_URL") or "").strip()
+    default_headers = None
+    if base_url and "ngrok" in base_url.lower():
+        # Tránh trang cảnh báo của tunnel ngrok (free tier) khi gọi API
+        default_headers = {"ngrok-skip-browser-warning": "true"}
+    kwargs: Dict[str, Any] = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+    if default_headers:
+        kwargs["default_headers"] = default_headers
+    return OpenAI(**kwargs)
+
+
 def get_embedding(text: str, task: str = "retrieval.passage") -> List[float]:
     """
-    Tạo embedding vector cho một đoạn text sử dụng JINA AI API.
-    """
-    import requests
-    
-    api_key = os.getenv("AUTHORIZATION_JINA")
-    if not api_key:
-        raise ValueError("AUTHORIZATION_JINA not found in environment. Please add to .env")
-        
-    url = "https://api.jina.ai/v1/embeddings"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    data = {
-        "model": "jina-embeddings-v5-text-small",
-        "task": task,
-        "normalized": True,
-        "input": [text]
-    }
+    Tạo embedding vector cho một đoạn text.
 
+    EMBEDDING_PROVIDER:
+      - openai (mặc định): OpenAI API hoặc tương thích (đặt OPENAI_BASE_URL cho Ollama/ngrok).
+      - jina: Jina AI API (cần AUTHORIZATION_JINA).
+    """
+    provider = (os.getenv("EMBEDDING_PROVIDER") or "openai").strip().lower()
+
+    if provider == "jina":
+        import requests
+
+        api_key = os.getenv("AUTHORIZATION_JINA")
+        if not api_key:
+            raise ValueError("AUTHORIZATION_JINA not found in environment. Please add to .env")
+
+        url = "https://api.jina.ai/v1/embeddings"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        data = {
+            "model": "jina-embeddings-v5-text-small",
+            "task": task,
+            "normalized": True,
+            "input": [text],
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=60)
+            response.raise_for_status()
+            return response.json()["data"][0]["embedding"]
+        except Exception as e:
+            print(f"Lỗi khi gọi JINA API: {e}")
+            raise e
+
+    # OpenAI-compatible (OpenAI cloud, Ollama /v1/embeddings, …)
+    model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    client = _openai_embedding_client()
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=10)
-        response.raise_for_status()
-        return response.json()["data"][0]["embedding"]
+        r = client.embeddings.create(model=model, input=text)
+        return list(r.data[0].embedding)
     except Exception as e:
-        print(f"Lỗi khi gọi JINA API: {e}")
+        print(f"Lỗi khi gọi embeddings API: {e}")
         raise e
 
 

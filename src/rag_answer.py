@@ -46,9 +46,15 @@ def _make_openai_client():
 
     api_key = os.getenv("OPENAI_API_KEY")
     base_url = (os.getenv("OPENAI_BASE_URL") or "").strip()
+    default_headers = None
+    if base_url and "ngrok" in base_url.lower():
+        default_headers = {"ngrok-skip-browser-warning": "true"}
+    kwargs: Dict[str, Any] = {"api_key": api_key}
     if base_url:
-        return OpenAI(api_key=api_key, base_url=base_url)
-    return OpenAI(api_key=api_key)
+        kwargs["base_url"] = base_url
+    if default_headers:
+        kwargs["default_headers"] = default_headers
+    return OpenAI(**kwargs)
 
 
 # =============================================================================
