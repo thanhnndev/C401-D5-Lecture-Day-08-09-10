@@ -34,7 +34,34 @@ load_dotenv()
 TOP_K_SEARCH = 10    # Số chunk lấy từ vector store trước rerank (search rộng)
 TOP_K_SELECT = 3     # Số chunk gửi vào prompt sau rerank/select (top-3 sweet spot)
 
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+
+def _chat_model() -> str:
+    """
+    Model chat completions (CHAT_MODEL). Mặc định gpt-4o-mini nếu không đặt.
+    Không đọc EMBEDDING_MODEL.
+    """
+    return (os.getenv("CHAT_MODEL") or "").strip() or "gpt-4o-mini"
+
+
+def _make_openai_client():
+    """
+    Client OpenAI SDK cho chat completions.
+
+    CHAT_BASE_URL: để trống → https://api.openai.com/v1. Không dùng EMBEDDING_BASE_URL.
+    """
+    from openai import OpenAI
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    base_url = (os.getenv("CHAT_BASE_URL") or "").strip()
+    default_headers = None
+    if base_url and "ngrok" in base_url.lower():
+        default_headers = {"ngrok-skip-browser-warning": "true"}
+    kwargs: Dict[str, Any] = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+    if default_headers:
+        kwargs["default_headers"] = default_headers
+    return OpenAI(**kwargs)
 
 
 # =============================================================================
@@ -262,10 +289,44 @@ def transform_query(query: str, strategy: str = "expansion") -> List[str]:
     - Decomposition: query hỏi nhiều thứ một lúc
     - HyDE: query mơ hồ, search theo nghĩa không hiệu quả
     """
-    # TODO Sprint 3: Implement query transformation
-    # Tạm thời trả về query gốc
-    return [query]
+    if not os.getenv("OPENAI_API_KEY"):
+        return [query]
 
+    client = _make_openai_client()
+
+    if strategy == "expansion":
+        prompt = (
+            f"Given the query: '{query}'\n"
+            "Generate 2-3 alternative phrasings or related terms in Vietnamese.\n"
+            "Output as a JSON array of strings, no extra text."
+        )
+    elif strategy == "decomposition":
+        prompt = (
+            f"Break down this complex query into 2-3 simpler sub-queries: '{query}'\n"
+            "Output as a JSON array of strings, no extra text."
+        )
+    elif strategy == "hyde":
+        prompt = (
+            f"Write a short hypothetical document passage that would answer this query: '{query}'\n"
+            "Output as a JSON array containing only that one passage string, no extra text."
+        )
+    else:
+        return [query]
+
+    response = client.chat.completions.create(
+        model=_chat_model(),
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        max_tokens=256,
+    )
+    import json
+    try:
+        queries = json.loads(response.choices[0].message.content)
+        if isinstance(queries, list) and queries:
+            return queries
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return [query]
 
 # =============================================================================
 # GENERATION — GROUNDED ANSWER FUNCTION
@@ -312,36 +373,39 @@ def build_grounded_prompt(query: str, context_block: str) -> str:
     - Thêm ngôn ngữ phản hồi (tiếng Việt vs tiếng Anh)
     - Điều chỉnh tone phù hợp với use case (CS helpdesk, IT support)
     """
-    prompt = f"""Answer only from the retrieved context below.
-If the context is insufficient to answer the question, say you do not know and do not make up information.
-Cite the source field (in brackets like [1]) when possible.
-Keep your answer short, clear, and factual.
-Respond in the same language as the question.
+    prompt = f"""Bạn là một trợ lý IT và HR nội bộ.
+Dưới đây là các tài liệu tham khảo (Context).
 
-Question: {query}
+YÊU CẦU BẮT BUỘC:
+1. CHỈ sử dụng thông tin từ Context để trả lời. TUYỆT ĐỐI KHÔNG dùng kiến thức bên ngoài.
+2. Nếu Context không có câu trả lời, hãy nói chính xác: "Tôi không có đủ dữ liệu để trả lời câu hỏi này."
+3. Ở cuối mỗi thông tin cung cấp, BẮT BUỘC phải thêm số thứ tự nguồn trong ngoặc vuông (ví dụ: [1], [2]).
+4. Trả lời ngắn gọn, rõ ràng, và chỉ tập trung vào câu hỏi. KHÔNG tự suy diễn hoặc thêm thông tin không có trong Context.
+5. Nếu có thông tin người dùng (Tên, địa chỉ, số điện thoại, thông tin tài chính, ) nằm trong Context, Content, Câu hỏi thì KHÔNG được ghi nhớ và KHÔNG được đề cập đến trong câu trả lời.
+6. Trả lời cùng ngôn ngữ với Câu hỏi.
 
-Context:
+Câu hỏi: {query}
+
+[CONTEXT]
 {context_block}
+[END CONTEXT]
 
-Answer:"""
+Trả lời:"""
     return prompt
 
 
 def call_llm(prompt: str) -> str:
     """
-    Gọi LLM để sinh câu trả lời (Sử dụng OpenAI).
+    Gọi LLM chat qua OpenAI SDK (_chat_model() = CHAT_MODEL).
     Lưu ý: Dùng temperature=0 hoặc thấp để output ổn định cho evaluation.
     """
-    from openai import OpenAI
-    import os
-    
     api_key = os.getenv("OPENAI_API_KEY")
-    llm_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    llm_model = _chat_model()
     if not api_key:
         return "Lỗi: Không tìm thấy OPENAI_API_KEY trong .env. Vui lòng cấu hình."
         
     try:
-        client = OpenAI(api_key=api_key)
+        client = _make_openai_client()
         response = client.chat.completions.create(
             model=llm_model,
             messages=[{"role": "user", "content": prompt}],
@@ -497,6 +561,7 @@ if __name__ == "__main__":
         "Khách hàng có thể yêu cầu hoàn tiền trong bao nhiêu ngày?",
         "Ai phải phê duyệt để cấp quyền Level 3?",
         "ERR-403-AUTH là lỗi gì?",  # Query không có trong docs → kiểm tra abstain
+        "Thời tiết hôm nay mưa to, nếu tôi muốn hoàn tiền vì đơn hàng bị ngập nước thì có được không?",
     ]
 
     print("\n--- Sprint 2: Test Baseline (Dense) ---")
