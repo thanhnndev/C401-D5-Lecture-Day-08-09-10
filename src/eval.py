@@ -23,7 +23,7 @@ import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from rag_answer_nhan import rag_answer
+from rag_answer import rag_answer
 
 # =============================================================================
 # CẤU HÌNH
