@@ -14,10 +14,10 @@
 | Đào Phước Thịnh | 2A202600029 | Một phần Tech Lead; Sprint 1 — `index.py`, preprocess, chunking, metadata, embed → Chroma |
 | Trần Xuân Trường | 2A202600321 | Retrieval; Sprint 1–2 — index/metadata/chunk theo section, dense baseline, format context có trích dẫn; hỗ trợ Sprint 3 khi đánh giá variant; nối config với eval và tài liệu |
 | Nguyễn Tri Nhân | 2A202600224 | Sprint 3 — hybrid (dense + BM25, RRF), `query_transform`, rerank (Jina API), cấu hình OpenAI / grounding cho đánh giá |
-| Hồ Sỹ Minh Hà | 2A202600060 | Eval Owner — `llm_judge`, các hàm score (faithfulness, relevance, completeness), chạy baseline + variant, scorecard và A/B |
+| Hồ Sỹ Minh Hà | 2A202600060 | Eval Owner — `llm_judge`, các hàm score (faithfulness, relevance, completeness), chạy baseline + variant, scorecard và A/B *(cùng mục eval với Hải — xem §5)* |
 | Nông Nguyễn Thành | 2A202600250 | Ruleset Git/PR, gộp eval · scorecard · `logs/grading` với `docs/` và báo cáo nhóm; setup `frontend/` + `server/` (SSE → RAG) |
 | Đào Văn Công | 2A202600031 | Sprint 2 — `rag_answer`, `call_llm`, `build_grounded_prompt`, `build_context_block` trên Chroma đã index |
-| Đặng Hồ Hải | 2A202600020 | Chi tiết theo [`reports/individual/dang_ho_hai.md`](../../reports/individual/dang_ho_hai.md) *(đồng bộ với nhóm sau khi bổ sung file trong repo nộp bài)* |
+| Đặng Hồ Hải | 2A202600020 | Eval Owner — đồng bộ `index.py` / `rag_answer.py` từ branch, xây `eval.py` (batch, 4 metric, baseline/variant), xuất scorecard + A/B CSV; chạy E2E index → rag_answer → eval; phân tích **gq01** khi lỗi endpoint embedding *(cùng mục eval với Hà — xem §5)* |
 
 ---
 
@@ -87,6 +87,8 @@ Nhóm triển khai pipeline RAG end-to-end trong [`src/`](../../src/) với `PYT
 
 **Theo báo cáo cá nhân trong [`reports/individual/`](../../reports/individual/)** (không gộp trùng nội dung từng file; có chỗ hai báo cáo cùng nhắc Sprint 1 / retrieval — nhóm ghi nhận song song):
 
+**Eval (`eval.py` / scorecard):** Theo [`2A202600060_HoSyMinhHa.md`](../../reports/individual/2A202600060_HoSyMinhHa.md) và [`dang_ho_hai.md`](../../reports/individual/dang_ho_hai.md), **Hồ Sỹ Minh Hà** và **Đặng Hồ Hải** đều khai báo vai trò **Eval Owner** và phần việc quanh chấm điểm tự động, baseline/variant và xuất kết quả. Nhóm **ghi nhận đúng từng báo cáo** (Hà: `llm_judge`, các hàm score, parse JSON; Hải: đồng bộ `index.py`/`rag_answer.py` từ branch, xây `eval.py` batch 4 metric, xuất `results/`, chạy E2E). **GV / đối chiếu commit** trong `src/eval.py` để xác minh phần implement thực tế theo rubric *Code Contribution*.
+
 | Thành viên | Nội dung đã tự mô tả |
 |------------|----------------------|
 | **Đào Phước Thịnh** | Chia sprint; Sprint 1: `index.py`, preprocess, chunking, metadata (`source`, `section`, `department`), embed Chroma; xử lý tài liệu thiếu cấu trúc và debug embedding API. Phân tích scorecard **q06** (escalation P1): variant hybrid cải thiện so với baseline. |
@@ -95,17 +97,17 @@ Nhóm triển khai pipeline RAG end-to-end trong [`src/`](../../src/) với `PYT
 | **Hồ Sỹ Minh Hà** | `llm_judge`, `score_faithfulness` / `score_answer_relevance` / `score_completeness`, prompt JSON + xử lý parse; chạy baseline vs variant, scorecard và A/B. Phân tích **q07** alias; ví dụ q02 thiếu chi tiết “làm việc”. Đề xuất Ragas, chunk overlap lớn hơn cho constraint. |
 | **Nông Nguyễn Thành** | Ruleset nhánh, hướng dẫn commit/PR; **frontend** + **server** FastAPI/SSE; giai đoạn cuối gộp eval, scorecard, `logs/grading` với `architecture` / `tuning-log` / báo cáo nhóm. Phân tích **q07**; nhận xét áp lực merge sát **18h**. |
 | **Đào Văn Công** | Sprint 2: `rag_answer`, `call_llm`, `build_grounded_prompt`, `build_context_block`; khó khăn merge mất `END CONTEXT`. Phân tích **q09** (ERR-403-AUTH): retrieval/generation khi vector match yếu. |
-| **Đặng Hồ Hải** | Chi tiết trong [`dang_ho_hai.md`](../../reports/individual/dang_ho_hai.md) khi file có trong repo (MSSV 2A202600020). |
+| **Đặng Hồ Hải** | Eval Owner: lấy `index.py`, `rag_answer.py` từ branch làm nền; tự xây `eval.py` — batch toàn bộ câu hỏi, gọi `rag_answer()` baseline/variant, chấm **bốn metric** (faithfulness, relevance, context recall, completeness), xuất scorecard baseline/variant và A/B CSV vào `results/`; chạy lần lượt `index.py` → `rag_answer.py` → `eval.py` để kiểm tra E2E. Khó khăn: endpoint embeddings/ngrok offline (**ERR_NGROK_3200**) → retrieval/generation không ổn định, điểm dồn thấp và baseline/variant khó tách — phân tích **gq01** (SLA P1 so với phiên bản trước): điểm thấp do phụ thuộc API, không phải do chiến lược retrieval/prompt. Đề xuất: health check embedding/LLM trước khi chạy eval; tách **pipeline error rate** khỏi quality metrics trong báo cáo. |
 
-**Điều nhóm làm tốt:** Có scorecard, log grading và tài liệu kiến trúc/tuning bám rubric; pipeline và demo (HTTP/SSE) tách lớp rõ; báo cáo cá nhân có ví dụ cụ thể (q02, q06–q09) gắn với failure mode.
+**Điều nhóm làm tốt:** Có scorecard, log grading và tài liệu kiến trúc/tuning bám rubric; pipeline và demo (HTTP/SSE) tách lớp rõ; báo cáo cá nhân có ví dụ cụ thể (q02, q06–q09, **gq01** trong báo cáo Hải) gắn với failure mode.
 
-**Điều nhóm làm chưa tốt / rủi ro:** Gộp eval và tài liệu **sát deadline** (nhiều báo cáo cá nhân nhắc **18h**, conflict merge); completeness trung bình vẫn thấp; BM25 đôi khi nhiễu mục “cập nhật danh mục” (theo Nhân). Cần đối chiếu **claim vs commit** theo SCORING phần cá nhân.
+**Điều nhóm làm chưa tốt / rủi ro:** Gộp eval và tài liệu **sát deadline**; completeness trung bình vẫn thấp; BM25 đôi khi nhiễu mục “cập nhật danh mục” (theo Nhân); **sự cố hạ tầng embedding/API** có thể làm sai lệch scorecard và A/B nếu không tách lỗi môi trường (theo Hải). Hai khai báo Eval Owner — cần đối chiếu **claim vs commit** trong `src/eval.py` theo SCORING phần cá nhân.
 
 ---
 
 ## 6. Nếu có thêm 1 ngày, nhóm sẽ làm gì? (50–100 từ)
 
-Tổng hợp từ báo cáo cá nhân và mục 2–4: (1) **Tăng có kiểm soát `top_k_select` hoặc decomposition / query expansion alias** (Trường, Thành, Hà) cho multi-hop và câu khó. (2) **Tuning chunk overlap / paragraph-aware** (Hà, Trường) cho điều kiện kèm theo. (3) **Chạy lại grading** sau khi đổi **một biến** để không phá so sánh A/B. (4) **Cải thiện eval tự động** (trọng số dense/sparse, Ragas — Nhân, Hà). (5) **Hoàn thiện file báo cáo Hải** trong `reports/individual/` nếu chưa có trong bản nộp.
+Tổng hợp từ báo cáo cá nhân và mục 2–4: (1) **Tăng có kiểm soát `top_k_select` hoặc decomposition / query expansion alias** (Trường, Thành, Hà) cho multi-hop và câu khó. (2) **Tuning chunk overlap / paragraph-aware** (Hà, Trường) cho điều kiện kèm theo. (3) **Chạy lại grading** sau khi đổi **một biến** để không phá so sánh A/B. (4) **Cải thiện eval tự động** (trọng số dense/sparse, Ragas — Nhân, Hà). (5) **Health check endpoint embedding/LLM + tách thống kê lỗi pipeline khỏi quality metrics** (Hải) trước khi diễn giải điểm số.
 
 ---
 
@@ -119,7 +121,7 @@ Tổng hợp từ báo cáo cá nhân và mục 2–4: (1) **Tăng có kiểm so
 | Grading log | `logs/grading_run.json` (sinh từ pipeline + `data/grading_questions.json`, cấu hình khớp variant trong `src/eval.py`) |
 | Scorecard | `results/scorecard_baseline.md`, `results/scorecard_variant.md` (đồng bộ với `src/results/` nếu symlink) |
 | Docs | [`docs/architecture.md`](../../docs/architecture.md), [`docs/tuning-log.md`](../../docs/tuning-log.md) |
-| Báo cáo cá nhân | [`reports/individual/`](../../reports/individual/) — `DaoPhuocThinh.md`, `tran_xuan_truong.md`, `Nguyễn_Tri_Nhân.md`, `2A202600060_HoSyMinhHa.md`, `nong_nguyen_thanh.md`, `dao_van_cong.md`, `dang_ho_hai.md` *(khi có)* |
+| Báo cáo cá nhân | [`reports/individual/`](../../reports/individual/) — `DaoPhuocThinh.md`, `tran_xuan_truong.md`, `Nguyễn_Tri_Nhân.md`, `2A202600060_HoSyMinhHa.md`, `nong_nguyen_thanh.md`, `dao_van_cong.md`, [`dang_ho_hai.md`](../../reports/individual/dang_ho_hai.md) |
 
 ---
 
@@ -134,4 +136,4 @@ Tổng hợp từ báo cáo cá nhân và mục 2–4: (1) **Tăng có kiểm so
 
 ---
 
-*Báo cáo nhóm C401-D5 — Lab Day 08 RAG Pipeline. Nội dung phân công §5 đối chiếu trực tiếp với từng file trong `reports/individual/`. File `dang_ho_hai.md` cho Đặng Hồ Hải: thêm vào repo khi bổ sung để rubric cá nhân đầy đủ.*
+*Báo cáo nhóm C401-D5 — Lab Day 08 RAG Pipeline. 

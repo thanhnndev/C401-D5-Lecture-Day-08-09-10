@@ -41,7 +41,7 @@ Mỗi thành viên nộp một file Markdown trong [`reports/individual/`](repor
 | Hồ Sỹ Minh Hà | 2A202600060 | [`2A202600060_HoSyMinhHa.md`](reports/individual/2A202600060_HoSyMinhHa.md) |
 | Nông Nguyễn Thành | 2A202600250 | [`nong_nguyen_thanh.md`](reports/individual/nong_nguyen_thanh.md) |
 | Đào Văn Công | 2A202600031 | [`dao_van_cong.md`](reports/individual/dao_van_cong.md) |
-| Đặng Hồ Hải | 2A202600020 | *Chưa có file — gợi ý tên:* `dang_ho_hai.md` *(xem [`template.md`](reports/individual/template.md))* |
+| Đặng Hồ Hải | 2A202600020 | [`dang_ho_hai.md`](reports/individual/dang_ho_hai.md) |
 
 ---
 
