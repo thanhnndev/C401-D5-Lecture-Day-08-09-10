@@ -28,3 +28,7 @@ rank-bm25>=0.2.2                 # BM25 keyword search
 tqdm>=4.66.0                     # Progress bar khi index nhiều docs
 
 requests
+
+# === Eval (LLM-as-Judge trong eval.py) ===
+llama-index-core>=0.10.0
+llama-index-llms-openai>=0.1.0

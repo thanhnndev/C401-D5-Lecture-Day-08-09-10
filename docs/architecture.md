@@ -1,136 +1,125 @@
 # Architecture — RAG Pipeline (Day 08 Lab)
 
-> Template: Điền vào các mục này khi hoàn thành từng sprint.
-> Deliverable của Documentation Owner.
+> Code thực tế nằm trong [`src/`](../src/) (`src/index.py`, `src/rag_answer.py`, `src/eval.py`). Chạy: `PYTHONPATH=src .venv/bin/python src/<script>.py`.
 
 ## 1. Tổng quan kiến trúc
 
 ```
-[Raw Docs]
+[Raw Docs trong data/docs/]
     ↓
-[index.py: Preprocess → Chunk → Embed → Store]
+[src/index.py: preprocess → chunk → embed → upsert]
     ↓
-[ChromaDB Vector Store]
+[ChromaDB — chroma_db/]
     ↓
-[rag_answer.py: Query → Retrieve → Rerank → Generate]
+[src/rag_answer.py: retrieve → (rerank) → grounded prompt → LLM]
     ↓
-[Grounded Answer + Citation]
+[Câu trả lời có trích dẫn [1], [2], …]
 ```
 
-**Mô tả ngắn gọn:**
-> TODO: Mô tả hệ thống trong 2-3 câu. Nhóm xây gì? Cho ai dùng? Giải quyết vấn đề gì?
+**Mô tả ngắn gọn:** Pipeline RAG nội bộ cho IT/HR/CS: index các policy dạng text, truy vấn bằng embedding (và tùy chọn BM25 + hybrid), tùy chọn rerank, rồi sinh câu trả lời chỉ dựa trên ngữ cảnh đã truy vấn — nếu không đủ bằng chứng thì abstain theo câu cố định trong prompt.
 
 ---
 
 ## 2. Indexing Pipeline (Sprint 1)
 
 ### Tài liệu được index
-| File | Nguồn | Department | Số chunk |
-|------|-------|-----------|---------|
-| `policy_refund_v4.txt` | policy/refund-v4.pdf | CS | TODO |
-| `sla_p1_2026.txt` | support/sla-p1-2026.pdf | IT | TODO |
-| `access_control_sop.txt` | it/access-control-sop.md | IT Security | TODO |
-| `it_helpdesk_faq.txt` | support/helpdesk-faq.md | IT | TODO |
-| `hr_leave_policy.txt` | hr/leave-policy-2026.pdf | HR | TODO |
+
+| File | Nguồn (`metadata.source`) | Department | Số chunk |
+|------|----------------------------|------------|----------|
+| `policy_refund_v4.txt` | policy/refund-v4.pdf | CS | 6 |
+| `sla_p1_2026.txt` | support/sla-p1-2026.pdf | IT | 5 |
+| `access_control_sop.txt` | it/access-control-sop.md | IT Security | 7 |
+| `it_helpdesk_faq.txt` | support/helpdesk-faq.md | IT | 13 |
+| `hr_leave_policy.txt` | hr/leave-policy-2026.pdf | HR | 5 |
+| **Tổng** | | | **36** |
 
 ### Quyết định chunking
-| Tham số | Giá trị | Lý do |
-|---------|---------|-------|
-| Chunk size | TODO tokens | TODO |
-| Overlap | TODO tokens | TODO |
-| Chunking strategy | Heading-based / paragraph-based | TODO |
-| Metadata fields | source, section, effective_date, department, access | Phục vụ filter, freshness, citation |
 
-### Embedding model
-- **Model**: TODO (OpenAI text-embedding-3-small / paraphrase-multilingual-MiniLM-L12-v2)
-- **Vector store**: ChromaDB (PersistentClient)
-- **Similarity metric**: Cosine
+| Tham số | Giá trị (code) | Lý do |
+|---------|----------------|-------|
+| Chunk size | `CHUNK_SIZE = 400` (ước lượng token; trong code quy đổi `× 4` ký tự) | Cân bằng độ dài ngữ cảnh và số chunk |
+| Overlap | `CHUNK_OVERLAP = 80` | Giảm cắt giữa đoạn liên quan ở biên chunk |
+| Chiến lược | Tách theo heading `=== Section|Phần|Điều N: … ===`; FAQ tách thêm theo `Q:`; đoạn dài `_split_by_size` theo đoạn văn + overlap | Giữ ranh giới điều khoản / câu hỏi FAQ trước khi cắt theo kích thước |
+| Metadata | `source`, `section`, `effective_date`, `department`, `access`, … | Filter, freshness, trích dẫn |
+
+### Embedding & vector store
+
+- **Embedding:** `EMBEDDING_MODEL` và `EMBEDDING_PROVIDER` (OpenAI-compatible hoặc Jina nếu cấu hình) — xem [`.env.example`](../.env.example); không dán API key vào tài liệu.
+- **Base URL:** `EMBEDDING_BASE_URL` (tách biệt `CHAT_BASE_URL` nếu dùng endpoint khác nhau).
+- **Vector store:** Chroma persistent (`chroma_db/`).
+- **Độ đo:** cosine (mặc định Chroma với embedding đã chuẩn hóa).
 
 ---
 
 ## 3. Retrieval Pipeline (Sprint 2 + 3)
 
-### Baseline (Sprint 2)
+### Baseline (khớp `BASELINE_CONFIG` trong `src/eval.py`)
+
 | Tham số | Giá trị |
 |---------|---------|
-| Strategy | Dense (embedding similarity) |
-| Top-k search | 10 |
-| Top-k select | 3 |
-| Rerank | Không |
+| `retrieval_mode` | `dense` |
+| `top_k_search` | 10 |
+| `top_k_select` | 3 |
+| `use_rerank` | `False` |
 
-### Variant (Sprint 3)
-| Tham số | Giá trị | Thay đổi so với baseline |
-|---------|---------|------------------------|
-| Strategy | TODO (hybrid / dense) | TODO |
-| Top-k search | TODO | TODO |
-| Top-k select | TODO | TODO |
-| Rerank | TODO (cross-encoder / MMR) | TODO |
-| Query transform | TODO (expansion / HyDE / decomposition) | TODO |
+### Variant (khớp `VARIANT_CONFIG` trong `src/eval.py`)
 
-**Lý do chọn variant này:**
-> TODO: Giải thích tại sao chọn biến này để tune.
-> Ví dụ: "Chọn hybrid vì corpus có cả câu tự nhiên (policy) lẫn mã lỗi và tên chuyên ngành (SLA ticket P1, ERR-403)."
+| Tham số | Giá trị | Ghi chú |
+|---------|---------|---------|
+| `retrieval_mode` | `hybrid` | Kết hợp dense + BM25 (sparse) theo `retrieve_hybrid` |
+| `top_k_search` | 10 | Giữ nguyên so với baseline |
+| `top_k_select` | 3 | Giữ nguyên |
+| `use_rerank` | `True` | Cross-encoder rerank trên ứng viên đã lấy |
+
+**Lý do gói Sprint 3:** Corpus có cả văn bản policy và mã lỗi / từ khóa (SLA, ERR-403). Hybrid giúp không bỏ lệch hoàn toàn khi truy vấn “đúng từ khóa nhưng lệch ngữ nghĩa embedding”; rerank sắp xếp lại top sau fusion để prompt nhận đúng 3 đoạn quan trọng nhất.
 
 ---
 
 ## 4. Generation (Sprint 2)
 
-### Grounded Prompt Template
-```
-Answer only from the retrieved context below.
-If the context is insufficient, say you do not know.
-Cite the source field when possible.
-Keep your answer short, clear, and factual.
+### Grounded prompt (tiếng Việt — `build_grounded_prompt` trong `src/rag_answer.py`)
 
-Question: {query}
+Khối prompt thực tế gồm: vai trò “trợ lý IT và HR nội bộ”, bốn quy tắc (chỉ dùng Context; abstain bằng câu cố định *"Tôi không có đủ dữ liệu…"*; bắt buộc `[1]`/`[2]`; ngắn gọn, không suy diễn), câu hỏi, và `[CONTEXT]` … `[END CONTEXT]` (context do `build_context_block` từ các chunk đã chọn).
 
-Context:
-[1] {source} | {section} | score={score}
-{chunk_text}
+### LLM
 
-[2] ...
-
-Answer:
-```
-
-### LLM Configuration
 | Tham số | Giá trị |
 |---------|---------|
-| Model | TODO (gpt-4o-mini / gemini-1.5-flash) |
-| Temperature | 0 (để output ổn định cho eval) |
-| Max tokens | 512 |
+| Model | `CHAT_MODEL` (mặc định ví dụ `gpt-4o-mini` trong `.env.example`) |
+| Base URL | `CHAT_BASE_URL` nếu dùng OpenAI-compatible |
+| Temperature | `0.0` trong `call_llm` |
+| Max tokens | Không set cứng trong code (mặc định API) |
 
 ---
 
 ## 5. Failure Mode Checklist
 
-> Dùng khi debug — kiểm tra lần lượt: index → retrieval → generation
-
 | Failure Mode | Triệu chứng | Cách kiểm tra |
 |-------------|-------------|---------------|
-| Index lỗi | Retrieve về docs cũ / sai version | `inspect_metadata_coverage()` trong index.py |
-| Chunking tệ | Chunk cắt giữa điều khoản | `list_chunks()` và đọc text preview |
-| Retrieval lỗi | Không tìm được expected source | `score_context_recall()` trong eval.py |
-| Generation lỗi | Answer không grounded / bịa | `score_faithfulness()` trong eval.py |
-| Token overload | Context quá dài → lost in the middle | Kiểm tra độ dài context_block |
+| Index lệch phiên bản | Trả lời thiếu version / effective date | Metadata `effective_date`, đọc chunk trong Chroma |
+| Chunking | Mất nửa điều khoản | `list_chunks` / preview trong `index.py` |
+| Retrieval | Thiếu nguồn mong đợi | So sánh dense vs hybrid, xem log điểm BM25/dense |
+| Generation | Bịa ngoài context | `score_faithfulness` trong `eval.py` |
+| Context quá dài | Lost in the middle | Giảm `top_k_select` hoặc tóm tắt chunk |
 
 ---
 
-## 6. Diagram (tùy chọn)
-
-> TODO: Vẽ sơ đồ pipeline nếu có thời gian. Có thể dùng Mermaid hoặc drawio.
+## 6. Diagram (Mermaid)
 
 ```mermaid
-graph LR
-    A[User Query] --> B[Query Embedding]
-    B --> C[ChromaDB Vector Search]
-    C --> D[Top-10 Candidates]
-    D --> E{Rerank?}
-    E -->|Yes| F[Cross-Encoder]
-    E -->|No| G[Top-3 Select]
-    F --> G
-    G --> H[Build Context Block]
-    H --> I[Grounded Prompt]
-    I --> J[LLM]
-    J --> K[Answer + Citation]
+flowchart LR
+  Q[User query] --> M{retrieval_mode}
+  M -->|dense| D[Chroma dense top-10]
+  M -->|sparse| S[BM25 top-10]
+  M -->|hybrid| H[Fusion dense + sparse]
+  D --> R{Rerank?}
+  S --> R
+  H --> R
+  R -->|yes| X[Cross-encoder → top-3]
+  R -->|no| T[Top-3]
+  X --> C[build_context_block]
+  T --> C
+  C --> P[build_grounded_prompt]
+  P --> L[LLM chat]
+  L --> A[Answer + citations]
 ```
