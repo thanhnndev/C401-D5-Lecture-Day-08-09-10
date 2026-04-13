@@ -1,9 +1,21 @@
+.venv/
+
+# Python — bytecode / cache (nên ignore). Các file __init__.py vẫn commit bình thường.
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 .DS_Store
 *.swp
 *~
 
 # Grading questions — không public trước 17:00
 day08/lab/data/grading_questions.json
+
+logs/
 chroma_db/*
 
 .env
