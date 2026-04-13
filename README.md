@@ -21,11 +21,27 @@ Day 08 ─ RAG grounded          →   Day 09 ─ Supervisor-Workers      →   
 | Phần | Vị trí |
 |------|--------|
 | **Frontend (Next.js, Bun)** — UI trợ lý, mock SSE, trace/RAG demo | **[`frontend/`](frontend/)** — chi tiết cài đặt và mô tả dự án: **[`frontend/README.md`](frontend/README.md)** |
+| **Backend (FastAPI)** — SSE bridge tới RAG trong `src/` | **[`server/`](server/)** — cài đặt, route, env kết nối frontend: **[`server/README.md`](server/README.md)** |
 | Lab Day 08 (code) | [`src/`](src/) — `index.py`, `rag_answer.py`, `eval.py` |
 | Dữ liệu & câu hỏi test | [`data/`](data/) — `docs/`, `test_questions.json` |
 | Tài liệu thiết kế / tuning | [`docs/`](docs/) |
-| Báo cáo cá nhân (template) | [`reports/individual/`](reports/individual/) |
+| Báo cáo nhóm | [`reports/group/c401-d5_report.md`](reports/group/c401-d5_report.md) · symlink [`reports/group_report.md`](reports/group_report.md) |
+| Báo cáo cá nhân | [`reports/individual/`](reports/individual/) — bảng link từng thành viên ngay **dưới đây** |
 | Slide Day 08 · 09 · 10 | [`archived/day08/`](archived/day08/), [`archived/day09/`](archived/day09/), [`archived/day10/`](archived/day10/) |
+
+### Báo cáo cá nhân
+
+Mỗi thành viên nộp một file Markdown trong [`reports/individual/`](reports/individual/) (có thể bắt đầu từ [`template.md`](reports/individual/template.md)). Các file hiện có trong repo:
+
+| Thành viên | MSSV | Báo cáo |
+|------------|------|---------|
+| Đào Phước Thịnh | 2A202600029 | [`DaoPhuocThinh.md`](reports/individual/DaoPhuocThinh.md) |
+| Nguyễn Tri Nhân | 2A202600224 | [`Nguyễn_Tri_Nhân.md`](reports/individual/Nguyễn_Tri_Nhân.md) |
+| Trần Xuân Trường | 2A202600321 | [`tran_xuan_truong.md`](reports/individual/tran_xuan_truong.md) |
+| Hồ Sỹ Minh Hà | 2A202600060 | [`2A202600060_HoSyMinhHa.md`](reports/individual/2A202600060_HoSyMinhHa.md) |
+| Nông Nguyễn Thành | 2A202600250 | [`nong_nguyen_thanh.md`](reports/individual/nong_nguyen_thanh.md) |
+| Đào Văn Công | 2A202600031 | [`dao_van_cong.md`](reports/individual/dao_van_cong.md) |
+| Đặng Hồ Hải | 2A202600020 | *Chưa có file — gợi ý tên:* `dang_ho_hai.md` *(xem [`template.md`](reports/individual/template.md))* |
 
 ---
 
@@ -59,7 +75,7 @@ Vector store đã có, nhưng agent vẫn trả lời sai — tại sao?
 - [`src/rag_answer.py`](src/rag_answer.py) — retrieval + grounded answer (+ tuning variant)
 - [`src/eval.py`](src/eval.py) — scorecard và so sánh A/B; kết quả markdown (ví dụ `scorecard_baseline.md`) trong `src/results/` khi chạy eval
 - [`docs/architecture.md`](docs/architecture.md), [`docs/tuning-log.md`](docs/tuning-log.md)
-- [`reports/individual/`](reports/individual/) — báo cáo cá nhân theo template
+- [`reports/individual/`](reports/individual/) — báo cáo cá nhân (bảng link từng file ở mục **Báo cáo cá nhân** phía trên)
 
 ---
 
@@ -168,6 +184,8 @@ Theo chuỗi bài học, mỗi ngày xây trên artifact của ngày trước:
 | LLM | Claude / GPT-4o |
 | Embedding | text-embedding-3-small / BGE |
 | Vector store | ChromaDB / Qdrant / pgvector |
+| **API / streaming (repo này)** | **FastAPI + uvicorn** — [`server/`](server/) |
+| Frontend (repo này) | Next.js + Bun — [`frontend/`](frontend/) |
 | Orchestration | LangGraph / CrewAI |
 | MCP | MCP SDK |
 | Pipeline | Python ETL / Prefect / Airflow |
@@ -202,10 +220,25 @@ xdg-open archived/day10/lecture-10.html
 ```bash
 cp .env.example .env   # điền API key trong .env
 pip install -r requirements.txt
-python src/index.py
-python src/rag_answer.py
-python src/eval.py
+PYTHONPATH=src python src/index.py
+PYTHONPATH=src python src/rag_answer.py
+PYTHONPATH=src python src/eval.py
 ```
+
+### Backend — FastAPI + SSE (`server/`)
+
+API **FastAPI** đóng vai **cầu nối HTTP**: nhận chat từ frontend (hoặc qua proxy Next.js), gọi `rag_answer` trong [`src/rag_answer.py`](src/rag_answer.py) và trả **Server-Sent Events** (JSON khớp contract UI). CORS mặc định cho `localhost:3000`; health check `GET /health`.
+
+**Hướng dẫn đầy đủ:** **[`server/README.md`](server/README.md)** (cài `server/requirements.txt`, `PYTHONPATH`, biến môi trường frontend `LANGGRAPH_HTTP_URL` / `AGENT_USE_MOCK`).
+
+Tóm tắt chạy nhanh (từ thư mục gốc repo):
+
+```bash
+.venv/bin/pip install -r server/requirements.txt   # và thường cần thêm: pip install -r requirements.txt
+PYTHONPATH=. .venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8080
+```
+
+Luồng: **Browser → Next.js `/api/chat` → FastAPI (ví dụ `POST /runs/stream`) → `src/rag_answer` → SSE → UI.**
 
 ### Frontend (Next.js — thư mục `frontend/`)
 
