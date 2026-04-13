@@ -213,49 +213,78 @@ def rerank(
     top_k: int = TOP_K_SELECT,
 ) -> List[Dict[str, Any]]:
     """
-    Rerank các candidate chunks bằng Jina AI Cross-Encoder.
+    Rerank các candidate bằng API tương thích OpenAI `POST /v1/rerank`.
+
+    Cấu hình (một trong hai):
+      - RERANK_BASE_URL (vd. LM Studio http://127.0.0.1:1234/v1) + RERANKING_MODEL + RERANK_API_KEY (tuỳ chọn).
+      - Jina: để trống RERANK_BASE_URL, dùng JINA_API / AUTHORIZATION_JINA (URL cố định api.jina.ai).
     """
     import requests
     import os
 
-    api_key = os.getenv("JINA_API") or os.getenv("AUTHORIZATION_JINA")
     model_name = os.getenv("RERANKING_MODEL", "jina-reranker-v2-base-multilingual")
-
-    if not api_key:
-        print("[rerank] Lỗi: Không tìm thấy JINA_API trong .env")
-        return candidates[:top_k]
-
-    url = "https://api.jina.ai/v1/rerank"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-
     documents = [c["text"] for c in candidates]
 
-    data = {
+    rerank_base = (os.getenv("RERANK_BASE_URL") or "").strip()
+    if rerank_base:
+        url = f"{rerank_base.rstrip('/')}/rerank"
+        api_key = (
+            os.getenv("RERANK_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+            or "lm-studio"
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        if "ngrok" in rerank_base.lower():
+            headers["ngrok-skip-browser-warning"] = "true"
+    else:
+        api_key = os.getenv("JINA_API") or os.getenv("AUTHORIZATION_JINA")
+        if not api_key:
+            print("[rerank] Thiếu RERANK_BASE_URL (LM Studio/Ollama) hoặc JINA_API. Bỏ qua rerank.")
+            return candidates[:top_k]
+        url = "https://api.jina.ai/v1/rerank"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+    data: Dict[str, Any] = {
         "model": model_name,
         "query": query,
         "top_n": top_k,
         "documents": documents,
-        "return_documents": False
     }
+    if not rerank_base:
+        data["return_documents"] = False
+
+    timeout = 120.0 if rerank_base else 30.0
+
+    if not documents:
+        return []
 
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=15)
+        response = requests.post(url, headers=headers, json=data, timeout=timeout)
         response.raise_for_status()
-        results = response.json()["results"]
-        
+        payload = response.json()
+        raw = payload.get("results")
+        if raw is None:
+            raw = payload.get("data") or []
+        if not raw:
+            return candidates[:top_k]
         reranked = []
-        for item in results:
-            idx = item["index"]
+        for item in raw:
+            idx = int(item["index"])
+            score = item.get("relevance_score")
+            if score is None:
+                score = item.get("score", 0.0)
             c = candidates[idx].copy()
-            c["score"] = item["relevance_score"]
+            c["score"] = float(score)
             reranked.append(c)
-            
         return reranked
     except Exception as e:
-        print(f"[rerank] Lỗi gọi Jina API: {e}")
+        print(f"[rerank] Lỗi gọi rerank API ({url}): {e}")
         return candidates[:top_k]
 
 
