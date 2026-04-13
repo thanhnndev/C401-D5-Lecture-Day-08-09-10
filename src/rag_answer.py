@@ -262,10 +262,42 @@ def transform_query(query: str, strategy: str = "expansion") -> List[str]:
     - Decomposition: query hỏi nhiều thứ một lúc
     - HyDE: query mơ hồ, search theo nghĩa không hiệu quả
     """
-    # TODO Sprint 3: Implement query transformation
-    # Tạm thời trả về query gốc
-    return [query]
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+    if strategy == "expansion":
+        prompt = (
+            f"Given the query: '{query}'\n"
+            "Generate 2-3 alternative phrasings or related terms in Vietnamese.\n"
+            "Output as a JSON array of strings, no extra text."
+        )
+    elif strategy == "decomposition":
+        prompt = (
+            f"Break down this complex query into 2-3 simpler sub-queries: '{query}'\n"
+            "Output as a JSON array of strings, no extra text."
+        )
+    elif strategy == "hyde":
+        prompt = (
+            f"Write a short hypothetical document passage that would answer this query: '{query}'\n"
+            "Output as a JSON array containing only that one passage string, no extra text."
+        )
+    else:
+        return [query]
+
+    response = client.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        max_tokens=256,
+    )
+    import json
+    try:
+        queries = json.loads(response.choices[0].message.content)
+        if isinstance(queries, list) and queries:
+            return queries
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return [query]
 
 # =============================================================================
 # GENERATION — GROUNDED ANSWER FUNCTION
