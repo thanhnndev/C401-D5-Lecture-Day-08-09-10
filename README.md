@@ -25,7 +25,7 @@ Day 08 ─ RAG grounded          →   Day 09 ─ Supervisor-Workers      →   
 | Lab Day 08 (code) | [`src/`](src/) — `index.py`, `rag_answer.py`, `eval.py` |
 | Dữ liệu & câu hỏi test | [`data/`](data/) — `docs/`, `test_questions.json` |
 | Tài liệu thiết kế / tuning | [`docs/`](docs/) |
-| Báo cáo nhóm | [`reports/group/c401-d5_report.md`](reports/group/c401-d5_report.md) · symlink [`reports/group_report.md`](reports/group_report.md) |
+| Báo cáo nhóm | [`reports/group/c401-d5_report.md`](reports/group/c401-d5_report.md) |
 | Báo cáo cá nhân | [`reports/individual/`](reports/individual/) — bảng link từng thành viên ngay **dưới đây** |
 | Slide Day 08 · 09 · 10 | [`archived/day08/`](archived/day08/), [`archived/day09/`](archived/day09/), [`archived/day10/`](archived/day10/) |
 
