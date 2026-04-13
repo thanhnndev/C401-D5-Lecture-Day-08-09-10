@@ -288,31 +288,7 @@ def build_context_block(chunks: List[Dict[str, Any]]) -> str:
 
 
 def build_grounded_prompt(query: str, context_block: str) -> str:
-    """
-    Xây dựng grounded prompt theo 4 quy tắc từ slide:
-    1. Evidence-only: Chỉ trả lời từ retrieved context
-    2. Abstain: Thiếu context thì nói không đủ dữ liệu
-    3. Citation: Gắn source/section khi có thể
-    4. Short, clear, stable: Output ngắn, rõ, nhất quán
-
-    TODO Sprint 2:
-    Đây là prompt baseline. Trong Sprint 3, bạn có thể:
-    - Thêm hướng dẫn về format output (JSON, bullet points)
-    - Thêm ngôn ngữ phản hồi (tiếng Việt vs tiếng Anh)
-    - Điều chỉnh tone phù hợp với use case (CS helpdesk, IT support)
-    """
-#     prompt = f"""Answer only from the retrieved context below.
-# If the context is insufficient to answer the question, say you do not know and do not make up information.
-# Cite the source field (in brackets like [1]) when possible.
-# Keep your answer short, clear, and factual.
-# Respond in the same language as the question.
-
-# Question: {query}
-
-# Context:
-# {context_block}
-
-# Answer:"""
+    
     prompt = f"""Bạn là một trợ lý IT và HR nội bộ. 
 Dưới đây là các tài liệu tham khảo (Context).
 
@@ -329,6 +305,7 @@ YÊU CẦU BẮT BUỘC:
 
 Câu hỏi: {query}
 Câu trả lời:"""
+    
     return prompt
 
 def call_llm(prompt: str) -> str:
