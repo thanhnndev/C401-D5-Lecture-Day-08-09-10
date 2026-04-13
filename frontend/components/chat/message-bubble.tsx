@@ -9,13 +9,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 export function MessageBubble({
   role,
   children,
+  variant = "default",
   className,
 }: {
   role: "user" | "assistant"
   children: string
+  /** Viền nhẹ khi độ tin cậy thấp (assistant). */
+  variant?: "default" | "lowConfidence"
   className?: string
 }) {
   const isUser = role === "user"
+  const low = !isUser && variant === "lowConfidence"
 
   return (
     <div
@@ -40,7 +44,9 @@ export function MessageBubble({
           "min-w-0 max-w-[min(100%,52rem)] rounded-lg border px-3 py-2 text-sm shadow-xs",
           isUser
             ? "bg-primary text-primary-foreground border-transparent"
-            : "bg-card border-border"
+            : "bg-card border-border",
+          low &&
+            "ring-amber-500/50 bg-amber-500/[0.06] ring-2 ring-offset-2 ring-offset-background"
         )}
       >
         {isUser ? (

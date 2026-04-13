@@ -3,12 +3,6 @@
 import * as React from "react"
 import { TriangleAlert } from "lucide-react"
 
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -37,34 +31,30 @@ export function AiDisclaimer({ className }: { className?: string }) {
   if (hidden) return null
 
   return (
-    <Alert
+    <div
+      role="alert"
       className={cn(
-        "border-amber-500/35 bg-amber-500/8 text-foreground py-2.5 pr-2 pl-3 sm:pr-3",
+        "border-amber-500/30 bg-amber-500/6 text-foreground flex flex-wrap items-start gap-2 rounded-md border px-2 py-1.5 sm:items-center sm:gap-2.5",
         className
       )}
     >
       <TriangleAlert
-        className="text-amber-600 dark:text-amber-500"
+        className="text-amber-600 dark:text-amber-500 mt-0.5 size-3 shrink-0 sm:mt-0"
         aria-hidden
       />
-      <AlertTitle className="text-sm font-semibold tracking-tight">
-        C401 · D5 — Agents (AI)
-      </AlertTitle>
-      <AlertDescription className="text-muted-foreground text-xs leading-relaxed sm:text-sm">
-        Đầu ra do mô hình AI tạo; <strong className="text-foreground font-medium">có thể sai hoặc thiếu ngữ cảnh</strong>. Không thay thế tư vấn chính thức, pháp lý hay quyết định nội bộ. Hãy{" "}
-        <strong className="text-foreground font-medium">đối chiếu tài liệu và quy trình của tổ chức</strong>. Không nhập dữ liệu nhạy cảm / bí mật nếu chưa được phép.
-      </AlertDescription>
-      <AlertAction>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground h-7 text-xs"
-          onClick={dismiss}
-        >
-          Đã hiểu, ẩn
-        </Button>
-      </AlertAction>
-    </Alert>
+      <p className="min-w-0 flex-1 text-[11px] leading-snug sm:text-xs">
+        <span className="text-foreground font-semibold">C401 · D5 — AI · </span>
+        Có thể sai; không thay tư vấn chính thức. Đối chiếu tài liệu nội bộ. Không nhập dữ liệu nhạy cảm.
+      </p>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground h-6 shrink-0 px-2 text-[11px]"
+        onClick={dismiss}
+      >
+        Ẩn
+      </Button>
+    </div>
   )
 }

@@ -1,4 +1,4 @@
-import type { AgentEvent } from "@/lib/types/agent-events"
+import type { AgentEvent, ConfidenceLevel } from "@/lib/types/agent-events"
 
 export type ChatMessage = { role: "user" | "assistant"; content: string }
 
@@ -76,28 +76,55 @@ export async function* mockAgentStream(input: {
   })
   await pause(DEFAULT_STEP_PAUSE_MS)
 
+  const chunks = [
+    {
+      id: "c1",
+      title: "CS — SLA ticket P1",
+      excerpt:
+        "Ticket P1: thời gian phản hồi lần đầu ≤ 30 phút trong giờ làm việc; escalation lên duty manager nếu vượt SLA.",
+      score: 0.91,
+      source: "policy/cs-sla.md",
+    },
+    {
+      id: "c2",
+      title: "IT Helpdesk — Severity mapping",
+      excerpt:
+        "P1 = outage hoặc rủi ro nghiêm trọng cho nhiều người dùng; cần war-room channel và timeline cập nhật 15 phút.",
+      score: route === "it_helpdesk" ? 0.79 : 0.84,
+      source: "runbooks/severity.md",
+    },
+  ]
+
   yield* emit({
     type: "retrieval_result",
-    chunks: [
-      {
-        id: "c1",
-        title: "CS — SLA ticket P1",
-        excerpt:
-          "Ticket P1: thời gian phản hồi lần đầu ≤ 30 phút trong giờ làm việc; escalation lên duty manager nếu vượt SLA.",
-        score: 0.91,
-        source: "policy/cs-sla.md",
-      },
-      {
-        id: "c2",
-        title: "IT Helpdesk — Severity mapping",
-        excerpt:
-          "P1 = outage hoặc rủi ro nghiêm trọng cho nhiều người dùng; cần war-room channel và timeline cập nhật 15 phút.",
-        score: 0.84,
-        source: "runbooks/severity.md",
-      },
-    ],
+    chunks,
   })
   await pause(DEFAULT_BETWEEN_PHASE_MS)
+
+  const minScore = Math.min(...chunks.map((c) => c.score))
+  let confLevel: ConfidenceLevel = "high"
+  if (minScore < 0.82) confLevel = "low"
+  else if (minScore < 0.88) confLevel = "medium"
+
+  yield* emit({
+    type: "confidence_signal",
+    level: confLevel,
+    reason:
+      confLevel === "low"
+        ? "Điểm khớp chunk thấp — kiểm tra nguồn trước khi tin hoàn toàn"
+        : confLevel === "medium"
+          ? "Một phần chunk có điểm vừa phải"
+          : undefined,
+  })
+  await pause(DEFAULT_BETWEEN_PHASE_MS / 2)
+
+  yield* emit({
+    type: "human_checkpoint",
+    prompt:
+      "Đề xuất: xác nhận route trước khi tin cậy hoàn toàn vào câu trả lời tổng hợp.",
+    context: `route=${route}; minChunkScore=${minScore.toFixed(2)}`,
+  })
+  await pause(DEFAULT_BETWEEN_PHASE_MS / 2)
 
   yield* emit({
     type: "step_started",

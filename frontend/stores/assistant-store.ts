@@ -1,8 +1,23 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
 
-import type { PipelineMetrics, RetrievalChunk } from "@/lib/types/agent-events"
+import type {
+  ConfidenceLevel,
+  PipelineMetrics,
+  RetrievalChunk,
+} from "@/lib/types/agent-events"
 import type { TraceRow, UiMessage } from "@/lib/types/chat-ui"
+
+export type HilStatus = "idle" | "awaiting" | "resolved"
+
+function emptyUiEphemeral() {
+  return {
+    answerConfidence: null as ConfidenceLevel | null,
+    lastError: null as string | null,
+    hilStatus: "idle" as HilStatus,
+    hilPrompt: null as string | null,
+  }
+}
 
 function newId() {
   return `m_${Math.random().toString(36).slice(2, 11)}`
@@ -25,7 +40,8 @@ export type AssistantState = {
   loading: boolean
   /** Một dòng trạng thái cho luồng đang chạy (SSE). */
   activityLabel: string | null
-} & ReturnType<typeof emptyRunFields>
+} & ReturnType<typeof emptyRunFields> &
+  ReturnType<typeof emptyUiEphemeral>
 
 type AssistantActions = {
   beginSend: (userContent: string) => void
@@ -39,11 +55,21 @@ type AssistantActions = {
   setLastTraceId: (id: string | undefined) => void
   pushAssistantMessage: (
     content: string,
-    meta?: { sourcesUsed?: RetrievalChunk[]; routeKey?: string }
+    meta?: {
+      sourcesUsed?: RetrievalChunk[]
+      routeKey?: string
+      confidenceLevel?: ConfidenceLevel
+    }
   ) => void
   pushStoppedAssistant: (streamingSnapshot: string) => void
   clearStreaming: () => void
   clearSession: () => void
+  setAnswerConfidence: (level: ConfidenceLevel | null) => void
+  setLastError: (message: string | null) => void
+  setHilCheckpoint: (prompt: string | null) => void
+  resolveHil: () => void
+  /** Chuẩn bị state cho lần gọi lại sau lỗi (không thêm tin nhắn user). */
+  beginRetrySend: () => void
 }
 
 export type AssistantStore = AssistantState & AssistantActions
@@ -54,6 +80,7 @@ const initialRun: AssistantState = {
   loading: false,
   activityLabel: null,
   ...emptyRunFields(),
+  ...emptyUiEphemeral(),
 }
 
 export const useAssistantStore = create<AssistantStore>()(
@@ -73,6 +100,7 @@ export const useAssistantStore = create<AssistantStore>()(
           loading: true,
           activityLabel: "Đang gửi câu hỏi…",
           ...emptyRunFields(),
+          ...emptyUiEphemeral(),
         })
       },
 
@@ -109,11 +137,17 @@ export const useAssistantStore = create<AssistantStore>()(
                 ? { sourcesUsed: meta.sourcesUsed }
                 : {}),
               ...(meta?.routeKey ? { routeKey: meta.routeKey } : {}),
+              ...(meta?.confidenceLevel
+                ? { confidenceLevel: meta.confidenceLevel }
+                : {}),
             },
           ],
           streamingText: "",
           loading: false,
           activityLabel: null,
+          answerConfidence: null,
+          hilPrompt: null,
+          hilStatus: s.hilStatus === "awaiting" ? "resolved" : s.hilStatus,
         })),
 
       pushStoppedAssistant: (streamingSnapshot) =>
@@ -132,6 +166,9 @@ export const useAssistantStore = create<AssistantStore>()(
             streamingText: "",
             loading: false,
             activityLabel: null,
+            answerConfidence: null,
+            hilPrompt: null,
+            hilStatus: "idle",
           }
         }),
 
@@ -144,6 +181,33 @@ export const useAssistantStore = create<AssistantStore>()(
           loading: false,
           activityLabel: null,
           ...emptyRunFields(),
+          ...emptyUiEphemeral(),
+        }),
+
+      setAnswerConfidence: (level) => set({ answerConfidence: level }),
+
+      setLastError: (message) => set({ lastError: message }),
+
+      setHilCheckpoint: (prompt) =>
+        set({
+          hilPrompt: prompt,
+          hilStatus: prompt ? "awaiting" : "idle",
+        }),
+
+      resolveHil: () =>
+        set({
+          hilStatus: "resolved",
+          hilPrompt: null,
+        }),
+
+      beginRetrySend: () =>
+        set({
+          ...emptyRunFields(),
+          ...emptyUiEphemeral(),
+          streamingText: "",
+          loading: true,
+          activityLabel: "Đang thử lại…",
+          lastError: null,
         }),
     }),
     {

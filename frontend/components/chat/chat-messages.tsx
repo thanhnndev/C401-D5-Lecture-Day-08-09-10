@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import type { ConfidenceLevel } from "@/lib/types/agent-events"
 import type { UiMessage } from "@/lib/types/chat-ui"
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion"
 import { cn } from "@/lib/utils"
@@ -16,9 +17,16 @@ const SUGGESTIONS = [
   "Wi‑Fi văn phòng chậm — checklist IT Helpdesk?",
 ]
 
+function assistantBubbleVariant(
+  level: ConfidenceLevel | null | undefined
+): "default" | "lowConfidence" {
+  return level === "low" ? "lowConfidence" : "default"
+}
+
 export function ChatMessages({
   messages,
   streamingText,
+  streamConfidence,
   loading,
   busy,
   onSuggestionClick,
@@ -26,6 +34,8 @@ export function ChatMessages({
 }: {
   messages: UiMessage[]
   streamingText: string
+  /** Độ tin cậy cho bubble đang stream (từ SSE). */
+  streamConfidence?: ConfidenceLevel | null
   loading: boolean
   /** Đang chờ / stream phản hồi — dùng cho aria-busy trên vùng log. */
   busy?: boolean
@@ -90,7 +100,12 @@ export function ChatMessages({
             </MessageBubble>
           ) : (
             <div key={m.id} className="flex flex-col gap-2">
-              <MessageBubble role="assistant">{m.content}</MessageBubble>
+              <MessageBubble
+                role="assistant"
+                variant={assistantBubbleVariant(m.confidenceLevel)}
+              >
+                {m.content}
+              </MessageBubble>
               <MessageSourcesInline message={m} />
             </div>
           )
@@ -107,7 +122,12 @@ export function ChatMessages({
         )}
 
         {streamingText ? (
-          <MessageBubble role="assistant">{streamingText}</MessageBubble>
+          <MessageBubble
+            role="assistant"
+            variant={assistantBubbleVariant(streamConfidence)}
+          >
+            {streamingText}
+          </MessageBubble>
         ) : null}
 
         <div ref={bottomRef} className="h-px w-full shrink-0" />

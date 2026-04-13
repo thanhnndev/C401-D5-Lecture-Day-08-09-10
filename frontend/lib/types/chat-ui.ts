@@ -1,4 +1,4 @@
-import type { AgentNode, RetrievalChunk } from "@/lib/types/agent-events"
+import type { AgentNode, ConfidenceLevel, RetrievalChunk } from "@/lib/types/agent-events"
 
 export type UiMessage = {
   id: string
@@ -8,6 +8,8 @@ export type UiMessage = {
   sourcesUsed?: RetrievalChunk[]
   /** Route supervisor chọn (snapshot). */
   routeKey?: string
+  /** Mức tin cậy tổng hợp cho câu trả lời (snapshot). */
+  confidenceLevel?: ConfidenceLevel
 }
 
 export type TraceRow =

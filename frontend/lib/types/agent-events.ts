@@ -9,6 +9,8 @@ export type AgentNode =
   | "policy"
   | "synthesis"
 
+export type ConfidenceLevel = "high" | "medium" | "low"
+
 export type RetrievalChunk = {
   id: string
   title: string
@@ -41,6 +43,16 @@ export type AgentEvent =
   | {
       type: "retrieval_result"
       chunks: RetrievalChunk[]
+    }
+  | {
+      type: "confidence_signal"
+      level: ConfidenceLevel
+      reason?: string
+    }
+  | {
+      type: "human_checkpoint"
+      prompt: string
+      context?: string
     }
   | {
       type: "token"
@@ -77,6 +89,10 @@ export function isAgentEvent(value: unknown): value is AgentEvent {
       )
     case "retrieval_result":
       return Array.isArray((value as { chunks?: unknown }).chunks)
+    case "confidence_signal":
+      return typeof (value as { level?: string }).level === "string"
+    case "human_checkpoint":
+      return typeof (value as { prompt?: string }).prompt === "string"
     case "token":
       return typeof (value as { delta?: string }).delta === "string"
     case "pipeline_signal": {

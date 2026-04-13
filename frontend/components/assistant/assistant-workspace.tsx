@@ -18,8 +18,10 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { AiDisclaimer } from "@/components/compliance/ai-disclaimer"
 import { ChatActivityStrip } from "@/components/chat/chat-activity-strip"
+import { ChatErrorBanner } from "@/components/chat/chat-error-banner"
 import { ChatMessages } from "@/components/chat/chat-messages"
 import { ChatComposer } from "@/components/chat/chat-composer"
+import { HilSoftStrip } from "@/components/chat/hil-soft-strip"
 import { PipelineMetricsStrip } from "@/components/pipeline/pipeline-metrics-strip"
 import { SourcesPanel } from "@/components/sources/sources-panel"
 import { AgentTimeline } from "@/components/agent-trace/agent-timeline"
@@ -127,6 +129,26 @@ export function AssistantWorkspace() {
 
       <AiDisclaimer className="mx-3 mt-2 shrink-0 sm:mx-4" />
 
+      {chat.lastError ? (
+        <ChatErrorBanner
+          className="mt-2 shrink-0"
+          message={chat.lastError}
+          onDismiss={chat.dismissError}
+          onRetry={() => {
+            void chat.retryAfterError()
+          }}
+        />
+      ) : null}
+
+      {chat.hilStatus === "awaiting" && chat.hilPrompt ? (
+        <HilSoftStrip
+          className="mt-2 shrink-0"
+          prompt={chat.hilPrompt}
+          onApprove={chat.resolveHilApprove}
+          onDismiss={chat.resolveHilDismiss}
+        />
+      ) : null}
+
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
         <section
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -143,6 +165,7 @@ export function AssistantWorkspace() {
           <ChatMessages
             messages={chat.messages}
             streamingText={chat.streamingText}
+            streamConfidence={chat.answerConfidence}
             loading={chat.loading}
             onSuggestionClick={(t) => {
               void chat.send(t)
