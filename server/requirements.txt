@@ -1,0 +1,7 @@
+# Tối thiểu cho FastAPI SSE bridge (chạy từ root: PYTHONPATH=. uvicorn server.main:app --host 127.0.0.1 --port 8080)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-dotenv>=1.0.0
+
+# Pipeline RAG đầy đủ trong src/ (OpenAI/Chroma/BM25…): cài thêm từ root
+#   pip install -r ../requirements.txt
